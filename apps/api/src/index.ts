@@ -4,8 +4,10 @@ import { authRouter } from './routes/auth.js';
 import { patientsRouter } from './routes/patients.js';
 import { doctorsRouter } from './routes/doctors.js';
 import { adminDoctorsRouter } from './routes/admin-doctors.js';
+import { secretaryAppointmentsRouter } from './routes/secretary-appointments.js';
 import { InMemoryPatientRepository } from './repositories/patient-repository.js';
 import { InMemoryDoctorRepository } from './repositories/doctor-repository.js';
+import { InMemoryAppointmentRepository } from './repositories/appointment-repository.js';
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -24,12 +26,13 @@ const app = express();
 app.use(express.json());
 app.use('/api/v1/auth', authRouter(JWT_SECRET));
 
-// ponytail: in-memory repo until Docker/Postgres is available locally — swap for
-// a pg-backed PatientRepository later, the route/interface don't need to change.
+// ponytail: in-memory repos until Docker/Postgres is available locally — swap for
+// pg-backed repositories later, the route/interface don't need to change.
+const patientRepository = new InMemoryPatientRepository();
 app.use(
   '/api/v1/patients',
   patientsRouter({
-    repository: new InMemoryPatientRepository(),
+    repository: patientRepository,
     cpfHmacSecret: CPF_HMAC_SECRET,
     fieldEncryptionKey: FIELD_ENCRYPTION_KEY,
   }),
@@ -45,6 +48,12 @@ app.use(
   }),
 );
 app.use('/api/v1/admin/doctors', adminDoctorsRouter({ repository: doctorRepository }));
+
+const appointmentRepository = new InMemoryAppointmentRepository();
+app.use(
+  '/api/v1/secretary/appointments',
+  secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository }),
+);
 
 const port = process.env.PORT ?? 8000;
 app.listen(port, () => console.log(`API listening on :${port}`));
