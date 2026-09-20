@@ -1,0 +1,14 @@
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE TYPE user_status AS ENUM ('PENDING', 'ACTIVE', 'LOCKED', 'SUSPENDED', 'DISABLED');
+CREATE TYPE user_role AS ENUM ('ADMIN', 'SECRETARY', 'DOCTOR', 'PATIENT');
+
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email VARCHAR(320) NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  role user_role NOT NULL,
+  status user_status NOT NULL DEFAULT 'PENDING',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
