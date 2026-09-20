@@ -17,8 +17,14 @@ export function authRouter(jwtSecret: string): Router {
     const genericFailure = () =>
       res.status(401).json({ code: 'INVALID_CREDENTIALS', message: 'E-mail ou senha inválidos.' });
 
+    // role now lives in user_roles (schema §16.1 supports multiple roles/history);
+    // MVP still enforces a single active role per user, so LIMIT 1 is safe here.
     const result = await pool.query(
-      'SELECT id, password_hash, role, status FROM users WHERE email = $1',
+      `SELECT u.id, u.password_hash, u.status, ur.role
+       FROM users u
+       JOIN user_roles ur ON ur.user_id = u.id AND ur.revoked_at IS NULL
+       WHERE u.email = $1
+       LIMIT 1`,
       [email.toLowerCase()],
     );
     const user = result.rows[0];
