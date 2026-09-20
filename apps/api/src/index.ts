@@ -6,9 +6,13 @@ import { doctorsRouter } from './routes/doctors.js';
 import { adminDoctorsRouter } from './routes/admin-doctors.js';
 import { secretaryAppointmentsRouter } from './routes/secretary-appointments.js';
 import { doctorAppointmentsRouter } from './routes/doctor-appointments.js';
+import { clinicalRecordsRouter } from './routes/clinical-records.js';
+import { prescriptionsRouter } from './routes/prescriptions.js';
 import { InMemoryPatientRepository } from './repositories/patient-repository.js';
 import { InMemoryDoctorRepository } from './repositories/doctor-repository.js';
 import { InMemoryAppointmentRepository } from './repositories/appointment-repository.js';
+import { InMemoryClinicalRecordRepository } from './repositories/clinical-record-repository.js';
+import { InMemoryPrescriptionRepository } from './repositories/prescription-repository.js';
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -56,6 +60,12 @@ app.use(
   secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository }),
 );
 app.use('/api/v1/doctor/appointments', doctorAppointmentsRouter({ appointmentRepository }));
+
+const clinicalRecordRepository = new InMemoryClinicalRecordRepository();
+app.use('/api/v1/doctor', clinicalRecordsRouter({ appointmentRepository, clinicalRecordRepository, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }));
+
+const prescriptionRepository = new InMemoryPrescriptionRepository();
+app.use('/api/v1/doctor', prescriptionsRouter({ appointmentRepository, prescriptionRepository }));
 
 const port = process.env.PORT ?? 8000;
 app.listen(port, () => console.log(`API listening on :${port}`));
