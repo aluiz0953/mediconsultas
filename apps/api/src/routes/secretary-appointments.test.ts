@@ -77,6 +77,17 @@ async function seedPatientAndApprovedDoctor(base: string) {
   return { patientId: patientId as string, doctorId: doctorId as string };
 }
 
+async function scheduleAppointment(base: string, patientId: string, doctorId: string) {
+  const response = await post(`${base}/secretary/appointments`, {
+    patient_id: patientId,
+    doctor_id: doctorId,
+    starts_at: '2026-10-01T13:00:00Z',
+    ends_at: '2026-10-01T13:30:00Z',
+  });
+  const body = await json(response);
+  return body.id as string;
+}
+
 test('schedules an appointment for a patient and an approved doctor', async () => {
   const { server, base } = await startServer(buildApp());
   try {
@@ -172,6 +183,37 @@ test('rejects an invalid time range', async () => {
       ends_at: '2026-10-01T13:00:00Z',
     });
     assert.equal(response.status, 400);
+  } finally {
+    server.close();
+  }
+});
+
+test('confirms a scheduled appointment (SEC-05)', async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const { patientId, doctorId } = await seedPatientAndApprovedDoctor(base);
+    const appointmentId = await scheduleAppointment(base, patientId, doctorId);
+
+    const response = await post(`${base}/secretary/appointments/${appointmentId}/confirm`, {});
+    assert.equal(response.status, 200);
+    const body = await json(response);
+    assert.equal(body.status, 'CONFIRMED');
+  } finally {
+    server.close();
+  }
+});
+
+test('rejects confirming an appointment that is not SCHEDULED', async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const { patientId, doctorId } = await seedPatientAndApprovedDoctor(base);
+    const appointmentId = await scheduleAppointment(base, patientId, doctorId);
+    await post(`${base}/secretary/appointments/${appointmentId}/confirm`, {});
+
+    const secondConfirm = await post(`${base}/secretary/appointments/${appointmentId}/confirm`, {});
+    assert.equal(secondConfirm.status, 409);
+    const body = await json(secondConfirm);
+    assert.equal(body.code, 'INVALID_STATUS_TRANSITION');
   } finally {
     server.close();
   }

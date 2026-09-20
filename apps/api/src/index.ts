@@ -5,6 +5,7 @@ import { patientsRouter } from './routes/patients.js';
 import { doctorsRouter } from './routes/doctors.js';
 import { adminDoctorsRouter } from './routes/admin-doctors.js';
 import { secretaryAppointmentsRouter } from './routes/secretary-appointments.js';
+import { doctorAppointmentsRouter } from './routes/doctor-appointments.js';
 import { InMemoryPatientRepository } from './repositories/patient-repository.js';
 import { InMemoryDoctorRepository } from './repositories/doctor-repository.js';
 import { InMemoryAppointmentRepository } from './repositories/appointment-repository.js';
@@ -54,6 +55,7 @@ app.use(
   '/api/v1/secretary/appointments',
   secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository }),
 );
+app.use('/api/v1/doctor/appointments', doctorAppointmentsRouter({ appointmentRepository }));
 
 const port = process.env.PORT ?? 8000;
 app.listen(port, () => console.log(`API listening on :${port}`));

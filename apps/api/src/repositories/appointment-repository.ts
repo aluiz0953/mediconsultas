@@ -28,6 +28,8 @@ export interface AppointmentRepository {
   // RN-04: a doctor can't have two overlapping active (non-cancelled) appointments.
   hasConflict(doctorId: string, startsAt: Date, endsAt: Date): Promise<boolean>;
   create(record: NewAppointmentRecord): Promise<AppointmentRecord>;
+  findById(id: string): Promise<AppointmentRecord | undefined>;
+  updateStatus(id: string, status: AppointmentStatus): Promise<AppointmentRecord | undefined>;
 }
 
 // ponytail: Map-based stand-in for the pg-backed repository (appointments table
@@ -55,5 +57,17 @@ export class InMemoryAppointmentRepository implements AppointmentRepository {
     };
     this.byId.set(record.id, record);
     return record;
+  }
+
+  async findById(id: string): Promise<AppointmentRecord | undefined> {
+    return this.byId.get(id);
+  }
+
+  async updateStatus(id: string, status: AppointmentStatus): Promise<AppointmentRecord | undefined> {
+    const existing = this.byId.get(id);
+    if (!existing) return undefined;
+    const updated: AppointmentRecord = { ...existing, status };
+    this.byId.set(id, updated);
+    return updated;
   }
 }

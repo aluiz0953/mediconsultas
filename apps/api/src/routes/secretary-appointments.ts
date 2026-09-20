@@ -77,5 +77,24 @@ export function secretaryAppointmentsRouter(config: SecretaryAppointmentsRouterC
     });
   });
 
+  // SEC-05: only a SCHEDULED appointment can be confirmed.
+  router.post('/:appointmentId/confirm', async (req, res) => {
+    const appointment = await config.appointmentRepository.findById(req.params.appointmentId);
+    if (!appointment) {
+      res.status(404).json({ code: 'APPOINTMENT_NOT_FOUND', message: 'Consulta não encontrada.' });
+      return;
+    }
+    if (appointment.status !== 'SCHEDULED') {
+      res.status(409).json({
+        code: 'INVALID_STATUS_TRANSITION',
+        message: `Não é possível confirmar uma consulta com status ${appointment.status}.`,
+      });
+      return;
+    }
+
+    const updated = await config.appointmentRepository.updateStatus(appointment.id, 'CONFIRMED');
+    res.json({ id: updated!.id, status: updated!.status });
+  });
+
   return router;
 }
