@@ -7,9 +7,13 @@ import express from 'express';
 import { pool } from './db.js';
 import { requireAuth, requireRole } from './auth/middleware.js';
 import { authRouter } from './routes/auth.js';
+import { accountRouter } from './routes/account.js';
 import { patientsRouter } from './routes/patients.js';
+import { patientProfileRouter } from './routes/patient-profile.js';
 import { doctorsRouter } from './routes/doctors.js';
+import { doctorProfileRouter } from './routes/doctor-profile.js';
 import { adminDoctorsRouter } from './routes/admin-doctors.js';
+import { adminAccountsRouter } from './routes/admin-accounts.js';
 import { adminAuditRouter } from './routes/admin-audit.js';
 import { secretaryAppointmentsRouter } from './routes/secretary-appointments.js';
 import { doctorAppointmentsRouter } from './routes/doctor-appointments.js';
@@ -24,6 +28,9 @@ import { PgAppointmentRepository } from './repositories/appointment-repository.j
 import { PgClinicalRecordRepository } from './repositories/clinical-record-repository.js';
 import { PgPrescriptionRepository } from './repositories/prescription-repository.js';
 import { PgAuditEventRepository } from './repositories/audit-event-repository.js';
+import { PgAccountRepository } from './repositories/account-repository.js';
+import { PgPasswordResetRepository } from './repositories/password-reset-repository.js';
+import { consoleMailer } from './notifications/mailer.js';
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -37,12 +44,27 @@ const JWT_SECRET = requireEnv('JWT_SECRET');
 const CPF_HMAC_SECRET = requireEnv('CPF_HMAC_SECRET');
 const LICENSE_HMAC_SECRET = requireEnv('LICENSE_HMAC_SECRET');
 const FIELD_ENCRYPTION_KEY = requireEnv('FIELD_ENCRYPTION_KEY');
+const RESET_TOKEN_HMAC_SECRET = requireEnv('RESET_TOKEN_HMAC_SECRET');
 
 const app = express();
 app.use(express.json());
-app.use('/api/v1/auth', authRouter(JWT_SECRET));
 
 const auditEventRepository = new PgAuditEventRepository(pool);
+const accountRepository = new PgAccountRepository(pool);
+const passwordResetRepository = new PgPasswordResetRepository(pool);
+
+app.use(
+  '/api/v1/auth',
+  authRouter({
+    jwtSecret: JWT_SECRET,
+    accountRepository,
+    passwordResetRepository,
+    auditEventRepository,
+    resetTokenHmacSecret: RESET_TOKEN_HMAC_SECRET,
+    sendPasswordResetLink: consoleMailer,
+  }),
+);
+app.use('/api/v1/me', requireAuth(JWT_SECRET), accountRouter({ accountRepository, auditEventRepository }));
 
 const patientRepository = new PgPatientRepository(pool);
 app.use(
@@ -52,6 +74,13 @@ app.use(
     cpfHmacSecret: CPF_HMAC_SECRET,
     fieldEncryptionKey: FIELD_ENCRYPTION_KEY,
   }),
+);
+
+app.use(
+  '/api/v1/patient',
+  requireAuth(JWT_SECRET),
+  requireRole('PATIENT'),
+  patientProfileRouter({ repository: patientRepository, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }),
 );
 
 const doctorRepository = new PgDoctorRepository(pool);
@@ -64,10 +93,28 @@ app.use(
   }),
 );
 app.use(
+  '/api/v1/doctor',
+  requireAuth(JWT_SECRET),
+  requireRole('DOCTOR'),
+  doctorProfileRouter({ repository: doctorRepository, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }),
+);
+app.use(
   '/api/v1/admin/doctors',
   requireAuth(JWT_SECRET),
   requireRole('ADMIN'),
   adminDoctorsRouter({ repository: doctorRepository, auditEventRepository }),
+);
+app.use(
+  '/api/v1/admin/accounts',
+  requireAuth(JWT_SECRET),
+  requireRole('ADMIN'),
+  adminAccountsRouter({
+    accountRepository,
+    auditEventRepository,
+    passwordResetRepository,
+    resetTokenHmacSecret: RESET_TOKEN_HMAC_SECRET,
+    sendPasswordResetLink: consoleMailer,
+  }),
 );
 app.use(
   '/api/v1/admin/audit-events',

@@ -3,8 +3,12 @@ import { AppShell } from './components/AppShell'
 import { ProtectedRoute, PublicOnlyRoute, RequireRole } from './routes/guards'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { HomePage } from './pages/HomePage'
+import { ProfilePage } from './pages/ProfilePage'
 import { PendingDoctorsPage } from './pages/admin/PendingDoctorsPage'
+import { AccountsPage } from './pages/admin/AccountsPage'
 import { AuditLogPage } from './pages/admin/AuditLogPage'
 import { SchedulePage } from './pages/secretary/SchedulePage'
 import { QueuePage } from './pages/doctor/QueuePage'
@@ -32,13 +36,31 @@ function App() {
             </PublicOnlyRoute>
           }
         />
+        <Route
+          path="/forgot-password"
+          element={
+            <PublicOnlyRoute>
+              <ForgotPasswordPage />
+            </PublicOnlyRoute>
+          }
+        />
+        <Route
+          path="/reset-password"
+          element={
+            <PublicOnlyRoute>
+              <ResetPasswordPage />
+            </PublicOnlyRoute>
+          }
+        />
 
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
             <Route path="/" element={<HomePage />} />
+            <Route path="/perfil" element={<ProfilePage />} />
 
             <Route element={<RequireRole roles={['ADMIN']} />}>
               <Route path="/admin/doctors" element={<PendingDoctorsPage />} />
+              <Route path="/admin/accounts" element={<AccountsPage />} />
               <Route path="/admin/audit" element={<AuditLogPage />} />
             </Route>
 

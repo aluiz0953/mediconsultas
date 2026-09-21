@@ -17,11 +17,18 @@ export interface PatientRecord {
 
 export type NewPatientRecord = Omit<PatientRecord, 'id' | 'createdAt'>;
 
+export interface PatientProfileUpdate {
+  fullName: string;
+  phoneCiphertext: string;
+  addressCiphertext: string;
+}
+
 export interface PatientRepository {
   existsByEmailOrCpfHash(email: string, cpfHash: string): Promise<boolean>;
   create(record: NewPatientRecord): Promise<PatientRecord>;
   findById(id: string): Promise<PatientRecord | undefined>;
   search(query: string): Promise<PatientRecord[]>;
+  updateProfile(id: string, update: PatientProfileUpdate): Promise<PatientRecord | undefined>;
 }
 
 // ponytail: Map-based stand-in for the pg-backed repository (users + user_roles
@@ -56,6 +63,15 @@ export class InMemoryPatientRepository implements PatientRepository {
     const needle = query.trim().toLowerCase();
     if (!needle) return [];
     return [...this.byId.values()].filter((patient) => patient.fullName.toLowerCase().includes(needle));
+  }
+
+  async updateProfile(id: string, update: PatientProfileUpdate): Promise<PatientRecord | undefined> {
+    const existing = this.byId.get(id);
+    if (!existing) return undefined;
+    existing.fullName = update.fullName;
+    existing.phoneCiphertext = update.phoneCiphertext;
+    existing.addressCiphertext = update.addressCiphertext;
+    return existing;
   }
 }
 
@@ -147,5 +163,15 @@ export class PgPatientRepository implements PatientRepository {
       status: row.status,
       createdAt: row.created_at,
     }));
+  }
+
+  async updateProfile(id: string, update: PatientProfileUpdate): Promise<PatientRecord | undefined> {
+    const result = await this.pool.query(
+      `UPDATE patient_profiles SET full_name = $2, phone_ciphertext = $3, address_ciphertext = $4, updated_at = NOW()
+       WHERE user_id = $1 RETURNING user_id`,
+      [id, update.fullName, update.phoneCiphertext, update.addressCiphertext],
+    );
+    if (result.rowCount === 0) return undefined;
+    return this.findById(id);
   }
 }

@@ -12,6 +12,8 @@ export interface DoctorRecord {
   licenseHash: string;
   licenseState: string;
   specialty: string;
+  phoneCiphertext: string | null;
+  addressCiphertext: string | null;
   approvalStatus: ApprovalStatus;
   approvalReason: string | null;
   approvedBy: string | null;
@@ -31,6 +33,12 @@ export interface ApprovalUpdate {
   approvedAt: Date;
 }
 
+export interface DoctorProfileUpdate {
+  fullName: string;
+  phoneCiphertext: string | null;
+  addressCiphertext: string | null;
+}
+
 export interface DoctorRepository {
   existsByEmailOrLicenseHash(email: string, licenseHash: string): Promise<boolean>;
   create(record: NewDoctorRecord): Promise<DoctorRecord>;
@@ -38,6 +46,7 @@ export interface DoctorRepository {
   listPending(): Promise<DoctorRecord[]>;
   listApproved(): Promise<DoctorRecord[]>;
   updateApproval(id: string, update: ApprovalUpdate): Promise<DoctorRecord | undefined>;
+  updateProfile(id: string, update: DoctorProfileUpdate): Promise<DoctorRecord | undefined>;
 }
 
 // ponytail: same Map-based stand-in as InMemoryPatientRepository — swap for a
@@ -86,11 +95,21 @@ export class InMemoryDoctorRepository implements DoctorRepository {
     this.byId.set(id, updated);
     return updated;
   }
+
+  async updateProfile(id: string, update: DoctorProfileUpdate): Promise<DoctorRecord | undefined> {
+    const existing = this.byId.get(id);
+    if (!existing) return undefined;
+    existing.fullName = update.fullName;
+    existing.phoneCiphertext = update.phoneCiphertext;
+    existing.addressCiphertext = update.addressCiphertext;
+    return existing;
+  }
 }
 
 const DOCTOR_SELECT = `
   SELECT u.id, u.email, u.password_hash, u.created_at,
          d.full_name, d.license_number_ciphertext, d.license_hash, d.license_state, d.specialty,
+         d.phone_ciphertext, d.address_ciphertext,
          d.approval_status, d.approval_reason, d.approved_by, d.approved_at
   FROM users u JOIN doctor_profiles d ON d.user_id = u.id
 `;
@@ -105,6 +124,8 @@ function mapDoctorRow(row: Record<string, unknown>): DoctorRecord {
     licenseHash: row.license_hash as string,
     licenseState: row.license_state as string,
     specialty: row.specialty as string,
+    phoneCiphertext: (row.phone_ciphertext as string | null) ?? null,
+    addressCiphertext: (row.address_ciphertext as string | null) ?? null,
     approvalStatus: row.approval_status as ApprovalStatus,
     approvalReason: (row.approval_reason as string | null) ?? null,
     approvedBy: (row.approved_by as string | null) ?? null,
@@ -153,6 +174,8 @@ export class PgDoctorRepository implements DoctorRepository {
         licenseHash: input.licenseHash,
         licenseState: input.licenseState,
         specialty: input.specialty,
+        phoneCiphertext: input.phoneCiphertext,
+        addressCiphertext: input.addressCiphertext,
         approvalStatus: 'PENDING_APPROVAL',
         approvalReason: null,
         approvedBy: null,
@@ -190,6 +213,15 @@ export class PgDoctorRepository implements DoctorRepository {
        WHERE user_id = $1
        RETURNING user_id`,
       [id, update.approvalStatus, update.approvalReason, update.approvedBy, update.approvedAt],
+    );
+    if (result.rowCount === 0) return undefined;
+    return this.findById(id);
+  }
+
+  async updateProfile(id: string, update: DoctorProfileUpdate): Promise<DoctorRecord | undefined> {
+    const result = await this.pool.query(
+      `UPDATE doctor_profiles SET full_name = $2, phone_ciphertext = $3, address_ciphertext = $4 WHERE user_id = $1 RETURNING user_id`,
+      [id, update.fullName, update.phoneCiphertext, update.addressCiphertext],
     );
     if (result.rowCount === 0) return undefined;
     return this.findById(id);

@@ -69,6 +69,8 @@ export function doctorsRouter(config: DoctorsRouterConfig): Router {
       licenseHash,
       licenseState: license_state.toUpperCase(),
       specialty: specialty.trim(),
+      phoneCiphertext: null,
+      addressCiphertext: null,
     });
 
     res.status(201).json({ id: record.id, approval_status: record.approvalStatus });
