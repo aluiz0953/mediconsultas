@@ -1,8 +1,9 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
-import { ProtectedRoute, PublicOnlyRoute } from './routes/guards'
+import { ProtectedRoute, PublicOnlyRoute, RequireRole } from './routes/guards'
 import { LoginPage } from './pages/LoginPage'
 import { HomePage } from './pages/HomePage'
+import { PendingDoctorsPage } from './pages/admin/PendingDoctorsPage'
 
 function App() {
   return (
@@ -20,6 +21,10 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
             <Route path="/" element={<HomePage />} />
+
+            <Route element={<RequireRole roles={['ADMIN']} />}>
+              <Route path="/admin/doctors" element={<PendingDoctorsPage />} />
+            </Route>
           </Route>
         </Route>
 
