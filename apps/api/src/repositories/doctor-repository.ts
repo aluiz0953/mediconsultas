@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { Pool } from 'pg';
 
 export type ApprovalStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
 
@@ -35,6 +36,7 @@ export interface DoctorRepository {
   create(record: NewDoctorRecord): Promise<DoctorRecord>;
   findById(id: string): Promise<DoctorRecord | undefined>;
   listPending(): Promise<DoctorRecord[]>;
+  listApproved(): Promise<DoctorRecord[]>;
   updateApproval(id: string, update: ApprovalUpdate): Promise<DoctorRecord | undefined>;
 }
 
@@ -73,11 +75,123 @@ export class InMemoryDoctorRepository implements DoctorRepository {
     return [...this.byId.values()].filter((doctor) => doctor.approvalStatus === 'PENDING_APPROVAL');
   }
 
+  async listApproved(): Promise<DoctorRecord[]> {
+    return [...this.byId.values()].filter((doctor) => doctor.approvalStatus === 'APPROVED');
+  }
+
   async updateApproval(id: string, update: ApprovalUpdate): Promise<DoctorRecord | undefined> {
     const existing = this.byId.get(id);
     if (!existing) return undefined;
     const updated: DoctorRecord = { ...existing, ...update };
     this.byId.set(id, updated);
     return updated;
+  }
+}
+
+const DOCTOR_SELECT = `
+  SELECT u.id, u.email, u.password_hash, u.created_at,
+         d.full_name, d.license_number_ciphertext, d.license_hash, d.license_state, d.specialty,
+         d.approval_status, d.approval_reason, d.approved_by, d.approved_at
+  FROM users u JOIN doctor_profiles d ON d.user_id = u.id
+`;
+
+function mapDoctorRow(row: Record<string, unknown>): DoctorRecord {
+  return {
+    id: row.id as string,
+    fullName: row.full_name as string,
+    email: row.email as string,
+    passwordHash: row.password_hash as string,
+    licenseNumberCiphertext: row.license_number_ciphertext as string,
+    licenseHash: row.license_hash as string,
+    licenseState: row.license_state as string,
+    specialty: row.specialty as string,
+    approvalStatus: row.approval_status as ApprovalStatus,
+    approvalReason: (row.approval_reason as string | null) ?? null,
+    approvedBy: (row.approved_by as string | null) ?? null,
+    approvedAt: (row.approved_at as Date | null) ?? null,
+    createdAt: row.created_at as Date,
+  };
+}
+
+// users + user_roles + doctor_profiles written as one transaction. The doctor's
+// account (users.status) is active immediately — clinical work is gated
+// separately by doctor_profiles.approval_status (RN-02), not by account status.
+export class PgDoctorRepository implements DoctorRepository {
+  constructor(private readonly pool: Pool) {}
+
+  async existsByEmailOrLicenseHash(email: string, licenseHash: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `SELECT 1 FROM users u JOIN doctor_profiles d ON d.user_id = u.id
+       WHERE u.email = $1 OR d.license_hash = $2 LIMIT 1`,
+      [email, licenseHash],
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async create(input: NewDoctorRecord): Promise<DoctorRecord> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const userResult = await client.query(
+        `INSERT INTO users (email, password_hash, status) VALUES ($1, $2, 'ACTIVE') RETURNING id, created_at`,
+        [input.email, input.passwordHash],
+      );
+      const { id, created_at } = userResult.rows[0];
+      await client.query(`INSERT INTO user_roles (user_id, role) VALUES ($1, 'DOCTOR')`, [id]);
+      await client.query(
+        `INSERT INTO doctor_profiles (user_id, full_name, license_number_ciphertext, license_hash, license_state, specialty)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [id, input.fullName, input.licenseNumberCiphertext, input.licenseHash, input.licenseState, input.specialty],
+      );
+      await client.query('COMMIT');
+      return {
+        id,
+        fullName: input.fullName,
+        email: input.email,
+        passwordHash: input.passwordHash,
+        licenseNumberCiphertext: input.licenseNumberCiphertext,
+        licenseHash: input.licenseHash,
+        licenseState: input.licenseState,
+        specialty: input.specialty,
+        approvalStatus: 'PENDING_APPROVAL',
+        approvalReason: null,
+        approvedBy: null,
+        approvedAt: null,
+        createdAt: created_at,
+      };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  async findById(id: string): Promise<DoctorRecord | undefined> {
+    const result = await this.pool.query(`${DOCTOR_SELECT} WHERE u.id = $1`, [id]);
+    const row = result.rows[0];
+    return row ? mapDoctorRow(row) : undefined;
+  }
+
+  async listPending(): Promise<DoctorRecord[]> {
+    const result = await this.pool.query(`${DOCTOR_SELECT} WHERE d.approval_status = 'PENDING_APPROVAL'`);
+    return result.rows.map(mapDoctorRow);
+  }
+
+  async listApproved(): Promise<DoctorRecord[]> {
+    const result = await this.pool.query(`${DOCTOR_SELECT} WHERE d.approval_status = 'APPROVED' ORDER BY d.full_name`);
+    return result.rows.map(mapDoctorRow);
+  }
+
+  async updateApproval(id: string, update: ApprovalUpdate): Promise<DoctorRecord | undefined> {
+    const result = await this.pool.query(
+      `UPDATE doctor_profiles
+       SET approval_status = $2, approval_reason = $3, approved_by = $4, approved_at = $5
+       WHERE user_id = $1
+       RETURNING user_id`,
+      [id, update.approvalStatus, update.approvalReason, update.approvedBy, update.approvedAt],
+    );
+    if (result.rowCount === 0) return undefined;
+    return this.findById(id);
   }
 }

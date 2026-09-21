@@ -22,13 +22,10 @@ export function adminDoctorsRouter(config: AdminDoctorsRouterConfig): Router {
   });
 
   router.post('/:doctorId/approve', async (req, res) => {
-    // ponytail: approved_by comes from the request body until an auth
-    // middleware exists to derive the acting admin from the JWT (req.user.sub).
-    const { approved_by } = req.body ?? {};
     const updated = await config.repository.updateApproval(req.params.doctorId, {
       approvalStatus: 'APPROVED',
       approvalReason: null,
-      approvedBy: typeof approved_by === 'string' ? approved_by : null,
+      approvedBy: req.user?.sub ?? null,
       approvedAt: new Date(),
     });
 
@@ -40,7 +37,7 @@ export function adminDoctorsRouter(config: AdminDoctorsRouterConfig): Router {
   });
 
   router.post('/:doctorId/reject', async (req, res) => {
-    const { reason, approved_by } = req.body ?? {};
+    const { reason } = req.body ?? {};
     if (typeof reason !== 'string' || !reason.trim()) {
       res.status(400).json({ code: 'REASON_REQUIRED', message: 'Justificativa é obrigatória para rejeitar.' });
       return;
@@ -49,7 +46,7 @@ export function adminDoctorsRouter(config: AdminDoctorsRouterConfig): Router {
     const updated = await config.repository.updateApproval(req.params.doctorId, {
       approvalStatus: 'REJECTED',
       approvalReason: reason.trim(),
-      approvedBy: typeof approved_by === 'string' ? approved_by : null,
+      approvedBy: req.user?.sub ?? null,
       approvedAt: new Date(),
     });
 

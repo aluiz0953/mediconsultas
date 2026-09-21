@@ -115,10 +115,13 @@ CREATE TABLE prescriptions (
     doctor_id UUID REFERENCES users(id) NOT NULL,
     version INTEGER NOT NULL DEFAULT 1,
     status prescription_status NOT NULL DEFAULT 'DRAFT',
+    -- DOC-06 AC: a prescription can be explicitly marked as not needed instead of having items.
+    no_medication_needed BOOLEAN NOT NULL DEFAULT FALSE,
     issued_at TIMESTAMPTZ,
     document_object_key TEXT,
     document_hash CHAR(64),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE prescription_items (

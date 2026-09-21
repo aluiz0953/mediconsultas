@@ -57,7 +57,7 @@ test('registers a patient with valid data', async () => {
     const response = await post(url, validPayload);
     assert.equal(response.status, 201);
     const body = await json(response);
-    assert.equal(body.status, 'PENDING');
+    assert.equal(body.status, 'ACTIVE');
     assert.ok(body.id);
   } finally {
     server.close();

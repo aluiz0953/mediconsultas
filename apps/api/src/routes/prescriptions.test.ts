@@ -12,10 +12,17 @@ import { InMemoryPatientRepository } from '../repositories/patient-repository.js
 import { InMemoryDoctorRepository } from '../repositories/doctor-repository.js';
 import { InMemoryAppointmentRepository } from '../repositories/appointment-repository.js';
 import { InMemoryPrescriptionRepository } from '../repositories/prescription-repository.js';
+import { requireAuth, requireRole } from '../auth/middleware.js';
+import { signSession } from '../auth/token.js';
 
 const CPF_HMAC_SECRET = 'test-cpf-secret';
 const LICENSE_HMAC_SECRET = 'test-license-secret';
 const FIELD_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
+const JWT_SECRET = 'test-jwt-secret';
+
+function doctorAuthHeaders(doctorId: unknown) {
+  return { authorization: `Bearer ${signSession({ sub: String(doctorId), role: 'DOCTOR' }, JWT_SECRET)}` };
+}
 
 const patientPayload = {
   full_name: 'Maria Souza',
@@ -48,8 +55,18 @@ function buildApp(): Express {
   app.use('/api/v1/doctors', doctorsRouter({ repository: doctorRepository, licenseHmacSecret: LICENSE_HMAC_SECRET, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }));
   app.use('/api/v1/admin/doctors', adminDoctorsRouter({ repository: doctorRepository }));
   app.use('/api/v1/secretary/appointments', secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository }));
-  app.use('/api/v1/doctor/appointments', doctorAppointmentsRouter({ appointmentRepository }));
-  app.use('/api/v1/doctor', prescriptionsRouter({ appointmentRepository, prescriptionRepository }));
+  app.use(
+    '/api/v1/doctor/appointments',
+    requireAuth(JWT_SECRET),
+    requireRole('DOCTOR'),
+    doctorAppointmentsRouter({ appointmentRepository, patientRepository }),
+  );
+  app.use(
+    '/api/v1/doctor',
+    requireAuth(JWT_SECRET),
+    requireRole('DOCTOR'),
+    prescriptionsRouter({ appointmentRepository, prescriptionRepository }),
+  );
   return app;
 }
 
@@ -60,8 +77,12 @@ async function startServer(app: Express) {
   return { server, base: `http://127.0.0.1:${address.port}/api/v1` };
 }
 
-function post(url: string, body?: unknown) {
-  return fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+function post(url: string, body?: unknown, headers: Record<string, string> = {}) {
+  return fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: body === undefined ? undefined : JSON.stringify(body) });
+}
+
+function get(url: string, headers: Record<string, string> = {}) {
+  return fetch(url, { headers });
 }
 
 function json(response: Response): Promise<Record<string, unknown>> {
@@ -84,7 +105,7 @@ async function seedInProgressAppointment(base: string) {
   });
   const { id: appointmentId } = await json(appointmentResponse);
   await post(`${base}/secretary/appointments/${appointmentId}/confirm`, {});
-  await post(`${base}/doctor/appointments/${appointmentId}/start`, { doctor_id: doctorId });
+  await post(`${base}/doctor/appointments/${appointmentId}/start`, undefined, doctorAuthHeaders(doctorId));
 
   return { patientId: patientId as string, doctorId: doctorId as string, appointmentId: appointmentId as string };
 }
@@ -93,13 +114,34 @@ test('creates a draft prescription with items', async () => {
   const { server, base } = await startServer(buildApp());
   try {
     const { doctorId, appointmentId } = await seedInProgressAppointment(base);
-    const response = await post(`${base}/doctor/appointments/${appointmentId}/prescriptions`, {
-      doctor_id: doctorId,
-      items: [{ medication_name: 'Losartana', dosage: '50mg', frequency: '1x ao dia' }],
-    });
+    const response = await post(
+      `${base}/doctor/appointments/${appointmentId}/prescriptions`,
+      { items: [{ medication_name: 'Losartana', dosage: '50mg', frequency: '1x ao dia' }] },
+      doctorAuthHeaders(doctorId),
+    );
     assert.equal(response.status, 201);
     const body = await json(response);
     assert.equal(body.status, 'DRAFT');
+  } finally {
+    server.close();
+  }
+});
+
+test('fetches the draft back with its items (GET)', async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const { doctorId, appointmentId } = await seedInProgressAppointment(base);
+    await post(
+      `${base}/doctor/appointments/${appointmentId}/prescriptions`,
+      { items: [{ medication_name: 'Losartana', dosage: '50mg' }] },
+      doctorAuthHeaders(doctorId),
+    );
+
+    const response = await get(`${base}/doctor/appointments/${appointmentId}/prescription`, doctorAuthHeaders(doctorId));
+    assert.equal(response.status, 200);
+    const body = await json(response);
+    const items = body.items as Array<Record<string, unknown>>;
+    assert.equal(items[0].medication_name, 'Losartana');
   } finally {
     server.close();
   }
@@ -109,10 +151,11 @@ test('rejects an item without medication_name', async () => {
   const { server, base } = await startServer(buildApp());
   try {
     const { doctorId, appointmentId } = await seedInProgressAppointment(base);
-    const response = await post(`${base}/doctor/appointments/${appointmentId}/prescriptions`, {
-      doctor_id: doctorId,
-      items: [{ dosage: '50mg' }],
-    });
+    const response = await post(
+      `${base}/doctor/appointments/${appointmentId}/prescriptions`,
+      { items: [{ dosage: '50mg' }] },
+      doctorAuthHeaders(doctorId),
+    );
     assert.equal(response.status, 400);
     const body = await json(response);
     assert.equal(body.code, 'INVALID_ITEMS');
@@ -125,10 +168,10 @@ test('rejects finalizing with no items and no_medication_needed unset', async ()
   const { server, base } = await startServer(buildApp());
   try {
     const { doctorId, appointmentId } = await seedInProgressAppointment(base);
-    const createResponse = await post(`${base}/doctor/appointments/${appointmentId}/prescriptions`, { doctor_id: doctorId });
+    const createResponse = await post(`${base}/doctor/appointments/${appointmentId}/prescriptions`, {}, doctorAuthHeaders(doctorId));
     const { id: prescriptionId } = await json(createResponse);
 
-    const response = await post(`${base}/doctor/prescriptions/${prescriptionId}/finalize`, { doctor_id: doctorId });
+    const response = await post(`${base}/doctor/prescriptions/${prescriptionId}/finalize`, {}, doctorAuthHeaders(doctorId));
     assert.equal(response.status, 400);
     const body = await json(response);
     assert.equal(body.code, 'PRESCRIPTION_REQUIRES_ITEMS');
@@ -141,13 +184,14 @@ test('finalizes a prescription with items', async () => {
   const { server, base } = await startServer(buildApp());
   try {
     const { doctorId, appointmentId } = await seedInProgressAppointment(base);
-    const createResponse = await post(`${base}/doctor/appointments/${appointmentId}/prescriptions`, {
-      doctor_id: doctorId,
-      items: [{ medication_name: 'Losartana' }],
-    });
+    const createResponse = await post(
+      `${base}/doctor/appointments/${appointmentId}/prescriptions`,
+      { items: [{ medication_name: 'Losartana' }] },
+      doctorAuthHeaders(doctorId),
+    );
     const { id: prescriptionId } = await json(createResponse);
 
-    const response = await post(`${base}/doctor/prescriptions/${prescriptionId}/finalize`, { doctor_id: doctorId });
+    const response = await post(`${base}/doctor/prescriptions/${prescriptionId}/finalize`, {}, doctorAuthHeaders(doctorId));
     assert.equal(response.status, 200);
     const body = await json(response);
     assert.equal(body.status, 'FINALIZED');
@@ -161,13 +205,14 @@ test('finalizes a prescription explicitly marked as not needed', async () => {
   const { server, base } = await startServer(buildApp());
   try {
     const { doctorId, appointmentId } = await seedInProgressAppointment(base);
-    const createResponse = await post(`${base}/doctor/appointments/${appointmentId}/prescriptions`, {
-      doctor_id: doctorId,
-      no_medication_needed: true,
-    });
+    const createResponse = await post(
+      `${base}/doctor/appointments/${appointmentId}/prescriptions`,
+      { no_medication_needed: true },
+      doctorAuthHeaders(doctorId),
+    );
     const { id: prescriptionId } = await json(createResponse);
 
-    const response = await post(`${base}/doctor/prescriptions/${prescriptionId}/finalize`, { doctor_id: doctorId });
+    const response = await post(`${base}/doctor/prescriptions/${prescriptionId}/finalize`, {}, doctorAuthHeaders(doctorId));
     assert.equal(response.status, 200);
   } finally {
     server.close();
@@ -178,15 +223,18 @@ test('rejects access from a doctor not linked to the prescription', async () => 
   const { server, base } = await startServer(buildApp());
   try {
     const { doctorId, appointmentId } = await seedInProgressAppointment(base);
-    const createResponse = await post(`${base}/doctor/appointments/${appointmentId}/prescriptions`, {
-      doctor_id: doctorId,
-      items: [{ medication_name: 'Losartana' }],
-    });
+    const createResponse = await post(
+      `${base}/doctor/appointments/${appointmentId}/prescriptions`,
+      { items: [{ medication_name: 'Losartana' }] },
+      doctorAuthHeaders(doctorId),
+    );
     const { id: prescriptionId } = await json(createResponse);
 
-    const response = await post(`${base}/doctor/prescriptions/${prescriptionId}/finalize`, {
-      doctor_id: '00000000-0000-0000-0000-000000000000',
-    });
+    const response = await post(
+      `${base}/doctor/prescriptions/${prescriptionId}/finalize`,
+      {},
+      doctorAuthHeaders('00000000-0000-0000-0000-000000000000'),
+    );
     assert.equal(response.status, 403);
   } finally {
     server.close();

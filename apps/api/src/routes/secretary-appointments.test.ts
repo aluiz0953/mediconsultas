@@ -9,10 +9,15 @@ import { secretaryAppointmentsRouter } from './secretary-appointments.js';
 import { InMemoryPatientRepository } from '../repositories/patient-repository.js';
 import { InMemoryDoctorRepository } from '../repositories/doctor-repository.js';
 import { InMemoryAppointmentRepository } from '../repositories/appointment-repository.js';
+import { requireAuth, requireRole } from '../auth/middleware.js';
+import { signSession } from '../auth/token.js';
 
 const CPF_HMAC_SECRET = 'test-cpf-secret';
 const LICENSE_HMAC_SECRET = 'test-license-secret';
 const FIELD_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
+const JWT_SECRET = 'test-jwt-secret';
+const SECRETARY_TOKEN = signSession({ sub: 'secretary-1', role: 'SECRETARY' }, JWT_SECRET);
+const authHeaders = { authorization: `Bearer ${SECRETARY_TOKEN}` };
 
 const patientPayload = {
   full_name: 'Maria Souza',
@@ -43,7 +48,12 @@ function buildApp(): Express {
   app.use('/api/v1/patients', patientsRouter({ repository: patientRepository, cpfHmacSecret: CPF_HMAC_SECRET, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }));
   app.use('/api/v1/doctors', doctorsRouter({ repository: doctorRepository, licenseHmacSecret: LICENSE_HMAC_SECRET, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }));
   app.use('/api/v1/admin/doctors', adminDoctorsRouter({ repository: doctorRepository }));
-  app.use('/api/v1/secretary/appointments', secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository }));
+  app.use(
+    '/api/v1/secretary/appointments',
+    requireAuth(JWT_SECRET),
+    requireRole('SECRETARY', 'ADMIN'),
+    secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository }),
+  );
   return app;
 }
 
@@ -54,12 +64,16 @@ async function startServer(app: Express) {
   return { server, base: `http://127.0.0.1:${address.port}/api/v1` };
 }
 
-function post(url: string, body?: unknown) {
+function post(url: string, body?: unknown, headers: Record<string, string> = authHeaders) {
   return fetch(url, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...headers },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
+}
+
+function get(url: string, headers: Record<string, string> = authHeaders) {
+  return fetch(url, { headers });
 }
 
 function json(response: Response): Promise<Record<string, unknown>> {
@@ -214,6 +228,99 @@ test('rejects confirming an appointment that is not SCHEDULED', async () => {
     assert.equal(secondConfirm.status, 409);
     const body = await json(secondConfirm);
     assert.equal(body.code, 'INVALID_STATUS_TRANSITION');
+  } finally {
+    server.close();
+  }
+});
+
+test('cancels a scheduled appointment', async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const { patientId, doctorId } = await seedPatientAndApprovedDoctor(base);
+    const appointmentId = await scheduleAppointment(base, patientId, doctorId);
+
+    const response = await post(`${base}/secretary/appointments/${appointmentId}/cancel`, {});
+    assert.equal(response.status, 200);
+    const body = await json(response);
+    assert.equal(body.status, 'CANCELLED');
+  } finally {
+    server.close();
+  }
+});
+
+test('rejects cancelling an appointment that is already cancelled', async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const { patientId, doctorId } = await seedPatientAndApprovedDoctor(base);
+    const appointmentId = await scheduleAppointment(base, patientId, doctorId);
+    await post(`${base}/secretary/appointments/${appointmentId}/cancel`, {});
+
+    const secondCancel = await post(`${base}/secretary/appointments/${appointmentId}/cancel`, {});
+    assert.equal(secondCancel.status, 409);
+  } finally {
+    server.close();
+  }
+});
+
+test('lists approved doctors for the scheduling picker', async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const { doctorId } = await seedPatientAndApprovedDoctor(base);
+    const response = await get(`${base}/secretary/appointments/doctors`);
+    assert.equal(response.status, 200);
+    const body = await json(response);
+    const items = body.items as Array<Record<string, unknown>>;
+    assert.equal(items.length, 1);
+    assert.equal(items[0].id, doctorId);
+  } finally {
+    server.close();
+  }
+});
+
+test('searches patients by name for the scheduling picker', async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    await seedPatientAndApprovedDoctor(base);
+    const response = await get(`${base}/secretary/appointments/patients?search=Maria`);
+    assert.equal(response.status, 200);
+    const body = await json(response);
+    const items = body.items as Array<Record<string, unknown>>;
+    assert.equal(items.length, 1);
+    assert.equal(items[0].full_name, 'Maria Souza');
+  } finally {
+    server.close();
+  }
+});
+
+test('lists appointments for the requested day', async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const { patientId, doctorId } = await seedPatientAndApprovedDoctor(base);
+    await scheduleAppointment(base, patientId, doctorId);
+
+    const sameDay = await get(`${base}/secretary/appointments?date=2026-10-01`);
+    const sameDayBody = await json(sameDay);
+    assert.equal((sameDayBody.items as unknown[]).length, 1);
+
+    const otherDay = await get(`${base}/secretary/appointments?date=2026-10-02`);
+    const otherDayBody = await json(otherDay);
+    assert.equal((otherDayBody.items as unknown[]).length, 0);
+  } finally {
+    server.close();
+  }
+});
+
+test('rejects secretary requests without a valid token', async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const noToken = await fetch(`${base}/secretary/appointments`);
+    assert.equal(noToken.status, 401);
+
+    const patientToken = signSession({ sub: 'patient-1', role: 'PATIENT' }, JWT_SECRET);
+    const wrongRole = await fetch(`${base}/secretary/appointments`, {
+      headers: { authorization: `Bearer ${patientToken}` },
+    });
+    assert.equal(wrongRole.status, 403);
   } finally {
     server.close();
   }

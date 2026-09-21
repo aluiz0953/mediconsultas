@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { Pool } from 'pg';
 
 export type AppointmentStatus =
   | 'SCHEDULED'
@@ -30,6 +31,8 @@ export interface AppointmentRepository {
   create(record: NewAppointmentRecord): Promise<AppointmentRecord>;
   findById(id: string): Promise<AppointmentRecord | undefined>;
   updateStatus(id: string, status: AppointmentStatus): Promise<AppointmentRecord | undefined>;
+  listByDateRange(from: Date, to: Date): Promise<AppointmentRecord[]>;
+  listByDoctorAndDateRange(doctorId: string, from: Date, to: Date): Promise<AppointmentRecord[]>;
 }
 
 // ponytail: Map-based stand-in for the pg-backed repository (appointments table
@@ -69,5 +72,88 @@ export class InMemoryAppointmentRepository implements AppointmentRepository {
     const updated: AppointmentRecord = { ...existing, status };
     this.byId.set(id, updated);
     return updated;
+  }
+
+  async listByDateRange(from: Date, to: Date): Promise<AppointmentRecord[]> {
+    return [...this.byId.values()]
+      .filter((appt) => appt.startsAt.getTime() >= from.getTime() && appt.startsAt.getTime() < to.getTime())
+      .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+  }
+
+  async listByDoctorAndDateRange(doctorId: string, from: Date, to: Date): Promise<AppointmentRecord[]> {
+    const inRange = await this.listByDateRange(from, to);
+    return inRange.filter((appt) => appt.doctorId === doctorId);
+  }
+}
+
+function mapAppointmentRow(row: Record<string, unknown>): AppointmentRecord {
+  return {
+    id: row.id as string,
+    patientId: row.patient_id as string,
+    doctorId: row.doctor_id as string,
+    unitId: (row.unit_id as string | null) ?? null,
+    startsAt: row.starts_at as Date,
+    endsAt: row.ends_at as Date,
+    status: row.status as AppointmentStatus,
+    // ponytail: administrative_notes_ciphertext holds plaintext for now — no route
+    // surfaces it back yet, encrypt with encryptField once one does.
+    administrativeNote: (row.administrative_notes_ciphertext as string | null) ?? null,
+    createdBy: (row.created_by as string | null) ?? null,
+    createdAt: row.created_at as Date,
+  };
+}
+
+export class PgAppointmentRepository implements AppointmentRepository {
+  constructor(private readonly pool: Pool) {}
+
+  async hasConflict(doctorId: string, startsAt: Date, endsAt: Date): Promise<boolean> {
+    const result = await this.pool.query(
+      `SELECT 1 FROM appointments
+       WHERE doctor_id = $1 AND status <> 'CANCELLED' AND starts_at < $3 AND $2 < ends_at
+       LIMIT 1`,
+      [doctorId, startsAt, endsAt],
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async create(input: NewAppointmentRecord): Promise<AppointmentRecord> {
+    const result = await this.pool.query(
+      `INSERT INTO appointments (patient_id, doctor_id, unit_id, starts_at, ends_at, administrative_notes_ciphertext, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [input.patientId, input.doctorId, input.unitId, input.startsAt, input.endsAt, input.administrativeNote, input.createdBy],
+    );
+    return mapAppointmentRow(result.rows[0]);
+  }
+
+  async findById(id: string): Promise<AppointmentRecord | undefined> {
+    const result = await this.pool.query(`SELECT * FROM appointments WHERE id = $1`, [id]);
+    const row = result.rows[0];
+    return row ? mapAppointmentRow(row) : undefined;
+  }
+
+  async updateStatus(id: string, status: AppointmentStatus): Promise<AppointmentRecord | undefined> {
+    const result = await this.pool.query(
+      `UPDATE appointments SET status = $2, updated_at = now() WHERE id = $1 RETURNING *`,
+      [id, status],
+    );
+    const row = result.rows[0];
+    return row ? mapAppointmentRow(row) : undefined;
+  }
+
+  async listByDateRange(from: Date, to: Date): Promise<AppointmentRecord[]> {
+    const result = await this.pool.query(
+      `SELECT * FROM appointments WHERE starts_at >= $1 AND starts_at < $2 ORDER BY starts_at`,
+      [from, to],
+    );
+    return result.rows.map(mapAppointmentRow);
+  }
+
+  async listByDoctorAndDateRange(doctorId: string, from: Date, to: Date): Promise<AppointmentRecord[]> {
+    const result = await this.pool.query(
+      `SELECT * FROM appointments WHERE doctor_id = $1 AND starts_at >= $2 AND starts_at < $3 ORDER BY starts_at`,
+      [doctorId, from, to],
+    );
+    return result.rows.map(mapAppointmentRow);
   }
 }

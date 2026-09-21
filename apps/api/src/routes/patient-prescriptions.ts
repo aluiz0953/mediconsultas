@@ -1,0 +1,75 @@
+import { Router } from 'express';
+import type { PrescriptionRepository } from '../repositories/prescription-repository.js';
+import type { DoctorRepository } from '../repositories/doctor-repository.js';
+
+export interface PatientPrescriptionsRouterConfig {
+  prescriptionRepository: PrescriptionRepository;
+  doctorRepository: DoctorRepository;
+}
+
+// ponytail: patient_id comes from a query param until an auth middleware exists
+// to derive it from the JWT (req.user.sub) instead.
+export function patientPrescriptionsRouter(config: PatientPrescriptionsRouterConfig): Router {
+  const router = Router();
+
+  // PAT-07: list only finalized prescriptions — a prescription has no separate
+  // release step, finalize is what makes it visible to the patient.
+  router.get('/', async (req, res) => {
+    const patientId = req.query.patient_id;
+    if (typeof patientId !== 'string') {
+      res.status(400).json({ code: 'INVALID_INPUT', message: 'patient_id é obrigatório.' });
+      return;
+    }
+
+    const prescriptions = await config.prescriptionRepository.listFinalizedByPatientId(patientId);
+    const items = await Promise.all(
+      prescriptions.map(async (prescription) => {
+        const doctor = await config.doctorRepository.findById(prescription.doctorId);
+        return {
+          id: prescription.id,
+          version: prescription.version,
+          doctor: doctor ? { id: doctor.id, display_name: doctor.fullName } : null,
+          issued_at: prescription.issuedAt?.toISOString() ?? null,
+          no_medication_needed: prescription.noMedicationNeeded,
+        };
+      }),
+    );
+    res.json({ items });
+  });
+
+  // PAT-07: view one finalized prescription, read-only.
+  router.get('/:prescriptionId', async (req, res) => {
+    const patientId = req.query.patient_id;
+    if (typeof patientId !== 'string') {
+      res.status(400).json({ code: 'INVALID_INPUT', message: 'patient_id é obrigatório.' });
+      return;
+    }
+
+    const record = await config.prescriptionRepository.findById(req.params.prescriptionId);
+    if (!record || record.patientId !== patientId || record.status !== 'FINALIZED') {
+      res.status(404).json({ code: 'PRESCRIPTION_NOT_FOUND', message: 'Receita não encontrada.' });
+      return;
+    }
+
+    const doctor = await config.doctorRepository.findById(record.doctorId);
+    res.json({
+      id: record.id,
+      version: record.version,
+      doctor: doctor ? { id: doctor.id, display_name: doctor.fullName } : null,
+      issued_at: record.issuedAt?.toISOString() ?? null,
+      no_medication_needed: record.noMedicationNeeded,
+      items: record.items.map((item) => ({
+        medication_name: item.medicationName,
+        strength: item.strength ?? null,
+        presentation: item.presentation ?? null,
+        dosage: item.dosage ?? null,
+        frequency: item.frequency ?? null,
+        duration: item.duration ?? null,
+        quantity: item.quantity ?? null,
+        instructions: item.instructions ?? null,
+      })),
+    });
+  });
+
+  return router;
+}

@@ -43,20 +43,36 @@ export interface ClinicalRecordsRouterConfig {
 export function clinicalRecordsRouter(config: ClinicalRecordsRouterConfig): Router {
   const router = Router();
 
-  // DOC-05: open a draft clinical record for an in-progress appointment linked to this doctor.
-  router.post('/appointments/:appointmentId/clinical-records', async (req, res) => {
-    const { doctor_id } = req.body ?? {};
-    if (typeof doctor_id !== 'string') {
-      res.status(400).json({ code: 'INVALID_INPUT', message: 'doctor_id é obrigatório.' });
-      return;
-    }
-
+  // DOC-05: fetch the existing draft/finalized record for an appointment, if any.
+  router.get('/appointments/:appointmentId/clinical-record', async (req, res) => {
     const appointment = await config.appointmentRepository.findById(req.params.appointmentId);
     if (!appointment) {
       res.status(404).json({ code: 'APPOINTMENT_NOT_FOUND', message: 'Consulta não encontrada.' });
       return;
     }
-    if (appointment.doctorId !== doctor_id) {
+    if (appointment.doctorId !== req.user!.sub) {
+      res.status(403).json({ code: 'RESOURCE_ACCESS_DENIED', message: 'Você não tem permissão para acessar este recurso.' });
+      return;
+    }
+
+    const record = await config.clinicalRecordRepository.findByAppointmentId(appointment.id);
+    if (!record) {
+      res.status(404).json({ code: 'CLINICAL_RECORD_NOT_FOUND', message: 'Nenhum registro clínico para esta consulta ainda.' });
+      return;
+    }
+
+    const content = JSON.parse(decryptField(record.contentCiphertext, config.fieldEncryptionKey)) as ClinicalRecordContent;
+    res.json({ id: record.id, version: record.version, status: record.status, content });
+  });
+
+  // DOC-05: open a draft clinical record for an in-progress appointment linked to this doctor.
+  router.post('/appointments/:appointmentId/clinical-records', async (req, res) => {
+    const appointment = await config.appointmentRepository.findById(req.params.appointmentId);
+    if (!appointment) {
+      res.status(404).json({ code: 'APPOINTMENT_NOT_FOUND', message: 'Consulta não encontrada.' });
+      return;
+    }
+    if (appointment.doctorId !== req.user!.sub) {
       res.status(403).json({ code: 'RESOURCE_ACCESS_DENIED', message: 'Você não tem permissão para acessar este recurso.' });
       return;
     }
@@ -87,18 +103,12 @@ export function clinicalRecordsRouter(config: ClinicalRecordsRouterConfig): Rout
 
   // DOC-05: edit the draft — no-op once finalized.
   router.patch('/clinical-records/:recordId', async (req, res) => {
-    const { doctor_id } = req.body ?? {};
-    if (typeof doctor_id !== 'string') {
-      res.status(400).json({ code: 'INVALID_INPUT', message: 'doctor_id é obrigatório.' });
-      return;
-    }
-
     const record = await config.clinicalRecordRepository.findById(req.params.recordId);
     if (!record) {
       res.status(404).json({ code: 'CLINICAL_RECORD_NOT_FOUND', message: 'Registro clínico não encontrado.' });
       return;
     }
-    if (record.doctorId !== doctor_id) {
+    if (record.doctorId !== req.user!.sub) {
       res.status(403).json({ code: 'RESOURCE_ACCESS_DENIED', message: 'Você não tem permissão para acessar este recurso.' });
       return;
     }
@@ -119,18 +129,14 @@ export function clinicalRecordsRouter(config: ClinicalRecordsRouterConfig): Rout
 
   // DOC-05/RF-08: finalize creates an immutable version; release_to_patient mirrors PRD §22.2.
   router.post('/clinical-records/:recordId/finalize', async (req, res) => {
-    const { doctor_id, release_to_patient } = req.body ?? {};
-    if (typeof doctor_id !== 'string') {
-      res.status(400).json({ code: 'INVALID_INPUT', message: 'doctor_id é obrigatório.' });
-      return;
-    }
+    const { release_to_patient } = req.body ?? {};
 
     const record = await config.clinicalRecordRepository.findById(req.params.recordId);
     if (!record) {
       res.status(404).json({ code: 'CLINICAL_RECORD_NOT_FOUND', message: 'Registro clínico não encontrado.' });
       return;
     }
-    if (record.doctorId !== doctor_id) {
+    if (record.doctorId !== req.user!.sub) {
       res.status(403).json({ code: 'RESOURCE_ACCESS_DENIED', message: 'Você não tem permissão para acessar este recurso.' });
       return;
     }

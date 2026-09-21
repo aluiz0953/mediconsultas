@@ -32,23 +32,59 @@ function parseItems(body: unknown): PrescriptionItem[] | null {
   return items;
 }
 
+function serializeItems(items: PrescriptionItem[]) {
+  return items.map((item) => ({
+    medication_name: item.medicationName,
+    strength: item.strength ?? null,
+    presentation: item.presentation ?? null,
+    dosage: item.dosage ?? null,
+    frequency: item.frequency ?? null,
+    duration: item.duration ?? null,
+    quantity: item.quantity ?? null,
+    instructions: item.instructions ?? null,
+  }));
+}
+
 export function prescriptionsRouter(config: PrescriptionsRouterConfig): Router {
   const router = Router();
 
-  // DOC-06: open a draft prescription for an in-progress appointment linked to this doctor.
-  router.post('/appointments/:appointmentId/prescriptions', async (req, res) => {
-    const { doctor_id, no_medication_needed } = req.body ?? {};
-    if (typeof doctor_id !== 'string') {
-      res.status(400).json({ code: 'INVALID_INPUT', message: 'doctor_id é obrigatório.' });
+  // DOC-06: fetch the existing draft/finalized prescription for an appointment, if any.
+  router.get('/appointments/:appointmentId/prescription', async (req, res) => {
+    const appointment = await config.appointmentRepository.findById(req.params.appointmentId);
+    if (!appointment) {
+      res.status(404).json({ code: 'APPOINTMENT_NOT_FOUND', message: 'Consulta não encontrada.' });
       return;
     }
+    if (appointment.doctorId !== req.user!.sub) {
+      res.status(403).json({ code: 'RESOURCE_ACCESS_DENIED', message: 'Você não tem permissão para acessar este recurso.' });
+      return;
+    }
+
+    const record = await config.prescriptionRepository.findByAppointmentId(appointment.id);
+    if (!record) {
+      res.status(404).json({ code: 'PRESCRIPTION_NOT_FOUND', message: 'Nenhuma receita para esta consulta ainda.' });
+      return;
+    }
+
+    res.json({
+      id: record.id,
+      version: record.version,
+      status: record.status,
+      no_medication_needed: record.noMedicationNeeded,
+      items: serializeItems(record.items),
+    });
+  });
+
+  // DOC-06: open a draft prescription for an in-progress appointment linked to this doctor.
+  router.post('/appointments/:appointmentId/prescriptions', async (req, res) => {
+    const { no_medication_needed } = req.body ?? {};
 
     const appointment = await config.appointmentRepository.findById(req.params.appointmentId);
     if (!appointment) {
       res.status(404).json({ code: 'APPOINTMENT_NOT_FOUND', message: 'Consulta não encontrada.' });
       return;
     }
-    if (appointment.doctorId !== doctor_id) {
+    if (appointment.doctorId !== req.user!.sub) {
       res.status(403).json({ code: 'RESOURCE_ACCESS_DENIED', message: 'Você não tem permissão para acessar este recurso.' });
       return;
     }
@@ -85,18 +121,14 @@ export function prescriptionsRouter(config: PrescriptionsRouterConfig): Router {
 
   // DOC-06: edit the draft's items.
   router.patch('/prescriptions/:prescriptionId', async (req, res) => {
-    const { doctor_id, no_medication_needed } = req.body ?? {};
-    if (typeof doctor_id !== 'string') {
-      res.status(400).json({ code: 'INVALID_INPUT', message: 'doctor_id é obrigatório.' });
-      return;
-    }
+    const { no_medication_needed } = req.body ?? {};
 
     const record = await config.prescriptionRepository.findById(req.params.prescriptionId);
     if (!record) {
       res.status(404).json({ code: 'PRESCRIPTION_NOT_FOUND', message: 'Receita não encontrada.' });
       return;
     }
-    if (record.doctorId !== doctor_id) {
+    if (record.doctorId !== req.user!.sub) {
       res.status(403).json({ code: 'RESOURCE_ACCESS_DENIED', message: 'Você não tem permissão para acessar este recurso.' });
       return;
     }
@@ -122,18 +154,12 @@ export function prescriptionsRouter(config: PrescriptionsRouterConfig): Router {
 
   // DOC-06: finalize creates an immutable version — needs at least one item, or an explicit "not needed".
   router.post('/prescriptions/:prescriptionId/finalize', async (req, res) => {
-    const { doctor_id } = req.body ?? {};
-    if (typeof doctor_id !== 'string') {
-      res.status(400).json({ code: 'INVALID_INPUT', message: 'doctor_id é obrigatório.' });
-      return;
-    }
-
     const record = await config.prescriptionRepository.findById(req.params.prescriptionId);
     if (!record) {
       res.status(404).json({ code: 'PRESCRIPTION_NOT_FOUND', message: 'Receita não encontrada.' });
       return;
     }
-    if (record.doctorId !== doctor_id) {
+    if (record.doctorId !== req.user!.sub) {
       res.status(403).json({ code: 'RESOURCE_ACCESS_DENIED', message: 'Você não tem permissão para acessar este recurso.' });
       return;
     }

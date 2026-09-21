@@ -12,8 +12,60 @@ export interface SecretaryAppointmentsRouterConfig {
 export function secretaryAppointmentsRouter(config: SecretaryAppointmentsRouterConfig): Router {
   const router = Router();
 
+  // Picker data for the scheduling form: only the fields the secretary needs
+  // (RF §4.1 — secretary gets what's necessary for agenda management, nothing clinical).
+  router.get('/doctors', async (_req, res) => {
+    const doctors = await config.doctorRepository.listApproved();
+    res.json({
+      items: doctors.map((doctor) => ({
+        id: doctor.id,
+        full_name: doctor.fullName,
+        license_state: doctor.licenseState,
+        specialty: doctor.specialty,
+      })),
+    });
+  });
+
+  router.get('/patients', async (req, res) => {
+    const query = typeof req.query.search === 'string' ? req.query.search : '';
+    const patients = await config.patientRepository.search(query);
+    res.json({
+      items: patients.map((patient) => ({ id: patient.id, full_name: patient.fullName })),
+    });
+  });
+
+  // Agenda view for a single day; defaults to today when no `date` is given.
+  router.get('/', async (req, res) => {
+    const dateParam = typeof req.query.date === 'string' ? req.query.date : undefined;
+    const from = dateParam ? new Date(`${dateParam}T00:00:00`) : new Date(new Date().toDateString());
+    if (Number.isNaN(from.getTime())) {
+      res.status(400).json({ code: 'INVALID_DATE', message: 'date deve estar no formato YYYY-MM-DD.' });
+      return;
+    }
+    const to = new Date(from.getTime() + 24 * 60 * 60 * 1000);
+
+    const appointments = await config.appointmentRepository.listByDateRange(from, to);
+    const items = await Promise.all(
+      appointments.map(async (appointment) => {
+        const [patient, doctor] = await Promise.all([
+          config.patientRepository.findById(appointment.patientId),
+          config.doctorRepository.findById(appointment.doctorId),
+        ]);
+        return {
+          id: appointment.id,
+          patient: { id: appointment.patientId, display_name: patient?.fullName ?? 'Paciente removido' },
+          doctor: { id: appointment.doctorId, display_name: doctor?.fullName ?? 'Médico removido' },
+          starts_at: appointment.startsAt.toISOString(),
+          ends_at: appointment.endsAt.toISOString(),
+          status: appointment.status,
+        };
+      }),
+    );
+    res.json({ items });
+  });
+
   router.post('/', async (req, res) => {
-    const { patient_id, doctor_id, unit_id, starts_at, ends_at, administrative_note, created_by } = req.body ?? {};
+    const { patient_id, doctor_id, unit_id, starts_at, ends_at, administrative_note } = req.body ?? {};
 
     if (
       typeof patient_id !== 'string' ||
@@ -21,7 +73,10 @@ export function secretaryAppointmentsRouter(config: SecretaryAppointmentsRouterC
       typeof starts_at !== 'string' ||
       typeof ends_at !== 'string'
     ) {
-      res.status(400).json({ code: 'INVALID_INPUT', message: 'patient_id, doctor_id, starts_at e ends_at são obrigatórios.' });
+      res.status(400).json({
+        code: 'INVALID_INPUT',
+        message: 'patient_id, doctor_id, starts_at e ends_at são obrigatórios.',
+      });
       return;
     }
 
@@ -63,7 +118,7 @@ export function secretaryAppointmentsRouter(config: SecretaryAppointmentsRouterC
       startsAt,
       endsAt,
       administrativeNote: typeof administrative_note === 'string' ? administrative_note : null,
-      createdBy: typeof created_by === 'string' ? created_by : null,
+      createdBy: req.user?.sub ?? null,
     });
 
     res.status(201).json({
@@ -93,6 +148,25 @@ export function secretaryAppointmentsRouter(config: SecretaryAppointmentsRouterC
     }
 
     const updated = await config.appointmentRepository.updateStatus(appointment.id, 'CONFIRMED');
+    res.json({ id: updated!.id, status: updated!.status });
+  });
+
+  // Only appointments that haven't started clinically yet can still be cancelled from the front desk.
+  router.post('/:appointmentId/cancel', async (req, res) => {
+    const appointment = await config.appointmentRepository.findById(req.params.appointmentId);
+    if (!appointment) {
+      res.status(404).json({ code: 'APPOINTMENT_NOT_FOUND', message: 'Consulta não encontrada.' });
+      return;
+    }
+    if (appointment.status !== 'SCHEDULED' && appointment.status !== 'CONFIRMED') {
+      res.status(409).json({
+        code: 'INVALID_STATUS_TRANSITION',
+        message: `Não é possível cancelar uma consulta com status ${appointment.status}.`,
+      });
+      return;
+    }
+
+    const updated = await config.appointmentRepository.updateStatus(appointment.id, 'CANCELLED');
     res.json({ id: updated!.id, status: updated!.status });
   });
 

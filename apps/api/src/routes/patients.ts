@@ -77,7 +77,9 @@ export function patientsRouter(config: PatientsRouterConfig): Router {
       birthDate: birth_date,
       phoneCiphertext: encryptField(phone, config.fieldEncryptionKey),
       addressCiphertext: encryptField(address, config.fieldEncryptionKey),
-      status: 'PENDING',
+      // ACTIVE immediately: there's no e-mail verification/activation flow yet,
+      // so PENDING would mean the patient could never pass the login check.
+      status: 'ACTIVE',
     });
 
     res.status(201).json({ id: record.id, status: record.status });
