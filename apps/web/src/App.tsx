@@ -4,6 +4,7 @@ import { ProtectedRoute, PublicOnlyRoute, RequireRole } from './routes/guards'
 import { LoginPage } from './pages/LoginPage'
 import { HomePage } from './pages/HomePage'
 import { PendingDoctorsPage } from './pages/admin/PendingDoctorsPage'
+import { SchedulePage } from './pages/secretary/SchedulePage'
 
 function App() {
   return (
@@ -24,6 +25,10 @@ function App() {
 
             <Route element={<RequireRole roles={['ADMIN']} />}>
               <Route path="/admin/doctors" element={<PendingDoctorsPage />} />
+            </Route>
+
+            <Route element={<RequireRole roles={['SECRETARY', 'ADMIN']} />}>
+              <Route path="/secretary/schedule" element={<SchedulePage />} />
             </Route>
           </Route>
         </Route>

@@ -38,6 +38,11 @@ export function AppShell() {
               Aprovação de médicos
             </NavLink>
           )}
+          {(user?.role === 'SECRETARY' || user?.role === 'ADMIN') && (
+            <NavLink to="/secretary/schedule" className={NAV_LINK_CLASS}>
+              Agenda de consultas
+            </NavLink>
+          )}
         </nav>
       </aside>
 
