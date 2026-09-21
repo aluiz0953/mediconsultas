@@ -43,6 +43,11 @@ export function AppShell() {
               Agenda de consultas
             </NavLink>
           )}
+          {user?.role === 'DOCTOR' && (
+            <NavLink to="/doctor/queue" className={NAV_LINK_CLASS}>
+              Fila de atendimento
+            </NavLink>
+          )}
         </nav>
       </aside>
 

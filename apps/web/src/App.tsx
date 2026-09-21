@@ -5,6 +5,8 @@ import { LoginPage } from './pages/LoginPage'
 import { HomePage } from './pages/HomePage'
 import { PendingDoctorsPage } from './pages/admin/PendingDoctorsPage'
 import { SchedulePage } from './pages/secretary/SchedulePage'
+import { QueuePage } from './pages/doctor/QueuePage'
+import { ConsultationPage } from './pages/doctor/ConsultationPage'
 
 function App() {
   return (
@@ -29,6 +31,11 @@ function App() {
 
             <Route element={<RequireRole roles={['SECRETARY', 'ADMIN']} />}>
               <Route path="/secretary/schedule" element={<SchedulePage />} />
+            </Route>
+
+            <Route element={<RequireRole roles={['DOCTOR']} />}>
+              <Route path="/doctor/queue" element={<QueuePage />} />
+              <Route path="/doctor/appointments/:appointmentId" element={<ConsultationPage />} />
             </Route>
           </Route>
         </Route>
