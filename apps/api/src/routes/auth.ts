@@ -12,6 +12,8 @@ import { hmacSha256Hex } from '../crypto/hmac.js';
 const MAX_FAILED_LOGINS = 5;
 const LOCKOUT_MINUTES = 15;
 const RESET_TOKEN_TTL_MINUTES = 30;
+const DEFAULT_SESSION_SECONDS = 1800; // 30 min, matches RF-01's inactivity-expiry default
+const REMEMBER_ME_SESSION_SECONDS = 30 * 24 * 60 * 60; // 30 days
 
 export interface AuthRouterConfig {
   jwtSecret: string;
@@ -26,7 +28,7 @@ export function authRouter(config: AuthRouterConfig): Router {
   const router = Router();
 
   router.post('/login', async (req, res) => {
-    const { email, password } = req.body ?? {};
+    const { email, password, remember_me } = req.body ?? {};
     if (typeof email !== 'string' || typeof password !== 'string') {
       res.status(400).json({ code: 'INVALID_INPUT', message: 'email e senha são obrigatórios.' });
       return;
@@ -89,8 +91,11 @@ export function authRouter(config: AuthRouterConfig): Router {
       reason: null,
     });
 
-    const token = signSession({ sub: user.id, role: user.role }, config.jwtSecret);
-    res.json({ access_token: token, token_type: 'Bearer', expires_in: 1800 });
+    // "Manter conectado": trades RF-01's 30-min inactivity expiry for a 30-day
+    // session when the user explicitly opts in at login.
+    const expiresInSeconds = remember_me === true ? REMEMBER_ME_SESSION_SECONDS : DEFAULT_SESSION_SECONDS;
+    const token = signSession({ sub: user.id, role: user.role }, config.jwtSecret, expiresInSeconds);
+    res.json({ access_token: token, token_type: 'Bearer', expires_in: expiresInSeconds });
   });
 
   // PAT-03: always the same response whether or not the e-mail exists (no account enumeration).

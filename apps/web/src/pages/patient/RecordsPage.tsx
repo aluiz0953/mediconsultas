@@ -49,6 +49,21 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
 }
 
+const NEW_BADGE_WINDOW_MS = 3 * 24 * 60 * 60 * 1000 // 3 days
+
+function isRecent(iso: string | null): boolean {
+  if (!iso) return false
+  return Date.now() - new Date(iso).getTime() < NEW_BADGE_WINDOW_MS
+}
+
+function NewBadge() {
+  return (
+    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+      Novo
+    </span>
+  )
+}
+
 type Tab = 'orientacoes' | 'receitas'
 
 export function RecordsPage() {
@@ -56,6 +71,9 @@ export function RecordsPage() {
   const [records, setRecords] = useState<ClinicalRecordDetail[] | null>(null)
   const [prescriptions, setPrescriptions] = useState<PrescriptionDetail[] | null>(null)
   const [error, setError] = useState('')
+
+  const newRecordsCount = records?.filter((record) => isRecent(record.released_at)).length ?? 0
+  const newPrescriptionsCount = prescriptions?.filter((prescription) => isRecent(prescription.issued_at)).length ?? 0
 
   useEffect(() => {
     async function loadRecords() {
@@ -96,24 +114,26 @@ export function RecordsPage() {
         <button
           type="button"
           onClick={() => setTab('orientacoes')}
-          className={`px-3 py-2 text-sm font-medium ${
+          className={`flex items-center gap-2 px-3 py-2 text-sm font-medium ${
             tab === 'orientacoes'
               ? 'border-b-2 border-emerald-600 text-slate-900 dark:text-white'
               : 'text-slate-500 dark:text-slate-400'
           }`}
         >
           Orientações
+          {newRecordsCount > 0 && <NewBadge />}
         </button>
         <button
           type="button"
           onClick={() => setTab('receitas')}
-          className={`px-3 py-2 text-sm font-medium ${
+          className={`flex items-center gap-2 px-3 py-2 text-sm font-medium ${
             tab === 'receitas'
               ? 'border-b-2 border-emerald-600 text-slate-900 dark:text-white'
               : 'text-slate-500 dark:text-slate-400'
           }`}
         >
           Receitas
+          {newPrescriptionsCount > 0 && <NewBadge />}
         </button>
       </div>
 
@@ -124,7 +144,10 @@ export function RecordsPage() {
           {records?.map((record) => (
             <li key={record.id} className="rounded-lg border border-slate-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
               <div className="flex items-center justify-between">
-                <p className="font-medium text-slate-900 dark:text-white">{record.doctor?.display_name ?? 'Médico'}</p>
+                <p className="flex items-center gap-2 font-medium text-slate-900 dark:text-white">
+                  {record.doctor?.display_name ?? 'Médico'}
+                  {isRecent(record.released_at) && <NewBadge />}
+                </p>
                 <p className="text-xs text-slate-400 dark:text-slate-500">Liberado em {formatDate(record.released_at)}</p>
               </div>
               <dl className="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-300">
@@ -157,7 +180,10 @@ export function RecordsPage() {
           {prescriptions?.map((prescription) => (
             <li key={prescription.id} className="rounded-lg border border-slate-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
               <div className="flex items-center justify-between">
-                <p className="font-medium text-slate-900 dark:text-white">{prescription.doctor?.display_name ?? 'Médico'}</p>
+                <p className="flex items-center gap-2 font-medium text-slate-900 dark:text-white">
+                  {prescription.doctor?.display_name ?? 'Médico'}
+                  {isRecent(prescription.issued_at) && <NewBadge />}
+                </p>
                 <div className="flex items-center gap-3">
                   <p className="text-xs text-slate-400 dark:text-slate-500">Emitida em {formatDate(prescription.issued_at)}</p>
                   <button

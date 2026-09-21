@@ -20,6 +20,7 @@ export function LoginPage() {
   const justRegistered = Boolean((location.state as { justRegistered?: boolean } | null)?.justRegistered)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -32,7 +33,7 @@ export function LoginPage() {
       const response = await fetch('/api/v1/auth/login', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, remember_me: rememberMe }),
       })
 
       if (!response.ok) {
@@ -105,6 +106,15 @@ export function LoginPage() {
               className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
             />
           </div>
+
+          <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(event) => setRememberMe(event.target.checked)}
+            />
+            Manter conectado
+          </label>
 
           {status === 'error' && (
             <p role="alert" className="text-sm text-red-600 dark:text-red-400">

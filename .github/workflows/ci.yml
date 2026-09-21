@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  mediconsultas:
+    name: Build, test, lint and audit (apps/api + apps/web)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace=apps/api
+      - run: npm test --workspace=apps/api
+      - run: npm run build --workspace=apps/web
+      - run: npm run lint --workspace=apps/web
+      # RNF-01/§17.4: known-vulnerability gate on every push/PR. See
+      # https://docs.npmjs.com/cli/v10/commands/npm-audit for severity levels;
+      # "high" fails the job, "moderate"+ still shows up in the log below.
+      - name: Dependency vulnerability scan (moderate+ reported, high+ blocks)
+        run: npm audit --audit-level=moderate || npm audit --audit-level=high
+
+  e2e-static-check:
+    name: Type-check and audit the Playwright suite (e2e/)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - working-directory: e2e
+        run: npm ci
+      - working-directory: e2e
+        run: npx tsc --noEmit
+      - working-directory: e2e
+        run: npm audit --audit-level=moderate || npm audit --audit-level=high

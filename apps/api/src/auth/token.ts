@@ -5,8 +5,8 @@ export interface SessionClaims {
   role: string;
 }
 
-export function signSession(claims: SessionClaims, secret: string): string {
-  return jwt.sign(claims, secret, { expiresIn: '30m' });
+export function signSession(claims: SessionClaims, secret: string, expiresInSeconds = 1800): string {
+  return jwt.sign(claims, secret, { expiresIn: expiresInSeconds });
 }
 
 export function verifySession(token: string, secret: string): SessionClaims {

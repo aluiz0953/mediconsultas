@@ -117,6 +117,25 @@ test('RF-01: locks the account out after 5 failed attempts', async () => {
   }
 });
 
+test('"remember me" issues a long-lived session instead of the 30-minute default', async () => {
+  const built = buildApp();
+  const { server, base } = await startServer(built.app);
+  try {
+    await seedActiveAccount(built.accountRepository);
+
+    const normal = await post(`${base}/login`, { email: 'user@example.com', password: PASSWORD });
+    const normalBody = await json(normal);
+    assert.equal(normalBody.expires_in, 1800);
+
+    const remembered = await post(`${base}/login`, { email: 'user@example.com', password: PASSWORD, remember_me: true });
+    const rememberedBody = await json(remembered);
+    assert.equal(rememberedBody.expires_in, 30 * 24 * 60 * 60);
+    assert.notEqual(rememberedBody.expires_in, normalBody.expires_in);
+  } finally {
+    server.close();
+  }
+});
+
 test('a successful login resets the failed-attempt counter', async () => {
   const built = buildApp();
   const { server, base } = await startServer(built.app);
