@@ -5,6 +5,7 @@ import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { HomePage } from './pages/HomePage'
 import { PendingDoctorsPage } from './pages/admin/PendingDoctorsPage'
+import { AuditLogPage } from './pages/admin/AuditLogPage'
 import { SchedulePage } from './pages/secretary/SchedulePage'
 import { QueuePage } from './pages/doctor/QueuePage'
 import { ConsultationPage } from './pages/doctor/ConsultationPage'
@@ -38,6 +39,7 @@ function App() {
 
             <Route element={<RequireRole roles={['ADMIN']} />}>
               <Route path="/admin/doctors" element={<PendingDoctorsPage />} />
+              <Route path="/admin/audit" element={<AuditLogPage />} />
             </Route>
 
             <Route element={<RequireRole roles={['SECRETARY', 'ADMIN']} />}>

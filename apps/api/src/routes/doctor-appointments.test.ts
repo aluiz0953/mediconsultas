@@ -10,6 +10,7 @@ import { doctorAppointmentsRouter } from './doctor-appointments.js';
 import { InMemoryPatientRepository } from '../repositories/patient-repository.js';
 import { InMemoryDoctorRepository } from '../repositories/doctor-repository.js';
 import { InMemoryAppointmentRepository } from '../repositories/appointment-repository.js';
+import { InMemoryAuditEventRepository } from '../repositories/audit-event-repository.js';
 import { requireAuth, requireRole } from '../auth/middleware.js';
 import { signSession } from '../auth/token.js';
 
@@ -47,10 +48,11 @@ function buildApp(): Express {
   const patientRepository = new InMemoryPatientRepository();
   const doctorRepository = new InMemoryDoctorRepository();
   const appointmentRepository = new InMemoryAppointmentRepository();
+  const auditEventRepository = new InMemoryAuditEventRepository();
 
   app.use('/api/v1/patients', patientsRouter({ repository: patientRepository, cpfHmacSecret: CPF_HMAC_SECRET, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }));
   app.use('/api/v1/doctors', doctorsRouter({ repository: doctorRepository, licenseHmacSecret: LICENSE_HMAC_SECRET, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }));
-  app.use('/api/v1/admin/doctors', adminDoctorsRouter({ repository: doctorRepository }));
+  app.use('/api/v1/admin/doctors', adminDoctorsRouter({ repository: doctorRepository, auditEventRepository }));
   app.use('/api/v1/secretary/appointments', secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository }));
   app.use(
     '/api/v1/doctor/appointments',

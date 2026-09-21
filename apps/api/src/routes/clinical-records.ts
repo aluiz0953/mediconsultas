@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { AppointmentRepository } from '../repositories/appointment-repository.js';
 import type { ClinicalRecordRepository } from '../repositories/clinical-record-repository.js';
+import type { AuditEventRepository } from '../repositories/audit-event-repository.js';
 import { encryptField, decryptField } from '../crypto/field-encryption.js';
 
 export interface ClinicalRecordContent {
@@ -37,6 +38,7 @@ function extractContent(body: unknown): ClinicalRecordContent {
 export interface ClinicalRecordsRouterConfig {
   appointmentRepository: AppointmentRepository;
   clinicalRecordRepository: ClinicalRecordRepository;
+  auditEventRepository: AuditEventRepository;
   fieldEncryptionKey: string;
 }
 
@@ -98,6 +100,17 @@ export function clinicalRecordsRouter(config: ClinicalRecordsRouterConfig): Rout
       contentCiphertext: encryptField(JSON.stringify(content), config.fieldEncryptionKey),
     });
 
+    await config.auditEventRepository.record({
+      actorUserId: req.user?.sub ?? null,
+      actorRole: req.user?.role ?? null,
+      action: 'clinical_record.created',
+      resourceType: 'clinical_record',
+      resourceId: record.id,
+      patientId: record.patientId,
+      result: 'SUCCESS',
+      reason: null,
+    });
+
     res.status(201).json({ id: record.id, version: record.version, status: record.status });
   });
 
@@ -123,6 +136,17 @@ export function clinicalRecordsRouter(config: ClinicalRecordsRouterConfig): Rout
       record.id,
       encryptField(JSON.stringify(merged), config.fieldEncryptionKey),
     );
+
+    await config.auditEventRepository.record({
+      actorUserId: req.user?.sub ?? null,
+      actorRole: req.user?.role ?? null,
+      action: 'clinical_record.updated',
+      resourceType: 'clinical_record',
+      resourceId: updated!.id,
+      patientId: record.patientId,
+      result: 'SUCCESS',
+      reason: null,
+    });
 
     res.json({ id: updated!.id, version: updated!.version, status: updated!.status });
   });
@@ -161,6 +185,17 @@ export function clinicalRecordsRouter(config: ClinicalRecordsRouterConfig): Rout
     const updated = await config.clinicalRecordRepository.finalize(record.id, {
       finalizedAt: now,
       releasedAt: release_to_patient === true ? now : null,
+    });
+
+    await config.auditEventRepository.record({
+      actorUserId: req.user?.sub ?? null,
+      actorRole: req.user?.role ?? null,
+      action: 'clinical_record.finalized',
+      resourceType: 'clinical_record',
+      resourceId: updated!.id,
+      patientId: record.patientId,
+      result: 'SUCCESS',
+      reason: null,
     });
 
     res.json({

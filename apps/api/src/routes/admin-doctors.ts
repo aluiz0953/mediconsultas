@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import type { DoctorRepository } from '../repositories/doctor-repository.js';
+import type { AuditEventRepository } from '../repositories/audit-event-repository.js';
 
 export interface AdminDoctorsRouterConfig {
   repository: DoctorRepository;
+  auditEventRepository: AuditEventRepository;
 }
 
 export function adminDoctorsRouter(config: AdminDoctorsRouterConfig): Router {
@@ -33,6 +35,18 @@ export function adminDoctorsRouter(config: AdminDoctorsRouterConfig): Router {
       res.status(404).json({ code: 'DOCTOR_NOT_FOUND', message: 'Médico não encontrado.' });
       return;
     }
+
+    await config.auditEventRepository.record({
+      actorUserId: req.user?.sub ?? null,
+      actorRole: req.user?.role ?? null,
+      action: 'doctor.approved',
+      resourceType: 'doctor_profile',
+      resourceId: updated.id,
+      patientId: null,
+      result: 'SUCCESS',
+      reason: null,
+    });
+
     res.json({ id: updated.id, status: updated.approvalStatus });
   });
 
@@ -54,6 +68,18 @@ export function adminDoctorsRouter(config: AdminDoctorsRouterConfig): Router {
       res.status(404).json({ code: 'DOCTOR_NOT_FOUND', message: 'Médico não encontrado.' });
       return;
     }
+
+    await config.auditEventRepository.record({
+      actorUserId: req.user?.sub ?? null,
+      actorRole: req.user?.role ?? null,
+      action: 'doctor.rejected',
+      resourceType: 'doctor_profile',
+      resourceId: updated.id,
+      patientId: null,
+      result: 'SUCCESS',
+      reason: updated.approvalReason,
+    });
+
     res.json({ id: updated.id, status: updated.approvalStatus, reason: updated.approvalReason });
   });
 

@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import type { AppointmentRepository } from '../repositories/appointment-repository.js';
 import type { PrescriptionItem, PrescriptionRepository } from '../repositories/prescription-repository.js';
+import type { AuditEventRepository } from '../repositories/audit-event-repository.js';
 
 export interface PrescriptionsRouterConfig {
   appointmentRepository: AppointmentRepository;
   prescriptionRepository: PrescriptionRepository;
+  auditEventRepository: AuditEventRepository;
 }
 
 function parseItems(body: unknown): PrescriptionItem[] | null {
@@ -116,6 +118,17 @@ export function prescriptionsRouter(config: PrescriptionsRouterConfig): Router {
       noMedicationNeeded: no_medication_needed === true,
     });
 
+    await config.auditEventRepository.record({
+      actorUserId: req.user?.sub ?? null,
+      actorRole: req.user?.role ?? null,
+      action: 'prescription.created',
+      resourceType: 'prescription',
+      resourceId: record.id,
+      patientId: record.patientId,
+      result: 'SUCCESS',
+      reason: null,
+    });
+
     res.status(201).json({ id: record.id, version: record.version, status: record.status });
   });
 
@@ -149,6 +162,17 @@ export function prescriptionsRouter(config: PrescriptionsRouterConfig): Router {
       typeof no_medication_needed === 'boolean' ? no_medication_needed : record.noMedicationNeeded,
     );
 
+    await config.auditEventRepository.record({
+      actorUserId: req.user?.sub ?? null,
+      actorRole: req.user?.role ?? null,
+      action: 'prescription.updated',
+      resourceType: 'prescription',
+      resourceId: updated!.id,
+      patientId: record.patientId,
+      result: 'SUCCESS',
+      reason: null,
+    });
+
     res.json({ id: updated!.id, version: updated!.version, status: updated!.status });
   });
 
@@ -179,6 +203,18 @@ export function prescriptionsRouter(config: PrescriptionsRouterConfig): Router {
     }
 
     const updated = await config.prescriptionRepository.finalize(record.id, new Date());
+
+    await config.auditEventRepository.record({
+      actorUserId: req.user?.sub ?? null,
+      actorRole: req.user?.role ?? null,
+      action: 'prescription.finalized',
+      resourceType: 'prescription',
+      resourceId: updated!.id,
+      patientId: record.patientId,
+      result: 'SUCCESS',
+      reason: null,
+    });
+
     res.json({
       id: updated!.id,
       version: updated!.version,

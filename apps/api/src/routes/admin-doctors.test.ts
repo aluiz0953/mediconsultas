@@ -5,6 +5,7 @@ import express, { type Express } from 'express';
 import { doctorsRouter } from './doctors.js';
 import { adminDoctorsRouter } from './admin-doctors.js';
 import { InMemoryDoctorRepository } from '../repositories/doctor-repository.js';
+import { InMemoryAuditEventRepository } from '../repositories/audit-event-repository.js';
 import { requireAuth, requireRole } from '../auth/middleware.js';
 import { signSession } from '../auth/token.js';
 
@@ -27,18 +28,19 @@ function buildApp() {
   const app: Express = express();
   app.use(express.json());
   const repository = new InMemoryDoctorRepository();
+  const auditEventRepository = new InMemoryAuditEventRepository();
   app.use('/api/v1/doctors', doctorsRouter({ repository, licenseHmacSecret: LICENSE_HMAC_SECRET, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }));
   app.use(
     '/api/v1/admin/doctors',
     requireAuth(JWT_SECRET),
     requireRole('ADMIN'),
-    adminDoctorsRouter({ repository }),
+    adminDoctorsRouter({ repository, auditEventRepository }),
   );
-  return app;
+  return { app, auditEventRepository };
 }
 
-async function startServer(app: Express) {
-  const server = app.listen(0);
+async function startServer(built: { app: Express }) {
+  const server = built.app.listen(0);
   await new Promise((resolve) => server.once('listening', resolve));
   const address = server.address() as AddressInfo;
   return { server, base: `http://127.0.0.1:${address.port}/api/v1` };
@@ -74,8 +76,9 @@ test('lists pending doctors', async () => {
   }
 });
 
-test('approves a pending doctor', async () => {
-  const { server, base } = await startServer(buildApp());
+test('approves a pending doctor and records an audit event (RN-09)', async () => {
+  const built = buildApp();
+  const { server, base } = await startServer(built);
   try {
     const id = await registerDoctor(base);
     const response = await post(`${base}/admin/doctors/${id}/approve`, { approved_by: 'admin-1' });
@@ -86,13 +89,20 @@ test('approves a pending doctor', async () => {
     const statusResponse = await fetch(`${base}/doctors/${id}/approval-status`);
     const statusBody = await json(statusResponse);
     assert.equal(statusBody.status, 'APPROVED');
+
+    const events = await built.auditEventRepository.list({ action: 'doctor.approved' });
+    assert.equal(events.length, 1);
+    assert.equal(events[0].resourceId, id);
+    assert.equal(events[0].actorUserId, 'admin-1');
+    assert.equal(events[0].result, 'SUCCESS');
   } finally {
     server.close();
   }
 });
 
-test('rejects a pending doctor and requires a reason', async () => {
-  const { server, base } = await startServer(buildApp());
+test('rejects a pending doctor, requires a reason, and records an audit event', async () => {
+  const built = buildApp();
+  const { server, base } = await startServer(built);
   try {
     const id = await registerDoctor(base);
 
@@ -104,6 +114,10 @@ test('rejects a pending doctor and requires a reason', async () => {
     const body = await json(response);
     assert.equal(body.status, 'REJECTED');
     assert.equal(body.reason, 'Documentos ilegíveis');
+
+    const events = await built.auditEventRepository.list({ action: 'doctor.rejected' });
+    assert.equal(events.length, 1);
+    assert.equal(events[0].reason, 'Documentos ilegíveis');
   } finally {
     server.close();
   }

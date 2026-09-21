@@ -5,12 +5,15 @@ import express, { type Express } from 'express';
 import { patientsRouter } from './patients.js';
 import { doctorsRouter } from './doctors.js';
 import { adminDoctorsRouter } from './admin-doctors.js';
+import { adminAuditRouter } from './admin-audit.js';
 import { secretaryAppointmentsRouter } from './secretary-appointments.js';
 import { doctorAppointmentsRouter } from './doctor-appointments.js';
+import { clinicalRecordsRouter } from './clinical-records.js';
 import { prescriptionsRouter } from './prescriptions.js';
 import { InMemoryPatientRepository } from '../repositories/patient-repository.js';
 import { InMemoryDoctorRepository } from '../repositories/doctor-repository.js';
 import { InMemoryAppointmentRepository } from '../repositories/appointment-repository.js';
+import { InMemoryClinicalRecordRepository } from '../repositories/clinical-record-repository.js';
 import { InMemoryPrescriptionRepository } from '../repositories/prescription-repository.js';
 import { InMemoryAuditEventRepository } from '../repositories/audit-event-repository.js';
 import { requireAuth, requireRole } from '../auth/middleware.js';
@@ -20,6 +23,8 @@ const CPF_HMAC_SECRET = 'test-cpf-secret';
 const LICENSE_HMAC_SECRET = 'test-license-secret';
 const FIELD_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
 const JWT_SECRET = 'test-jwt-secret';
+const ADMIN_TOKEN = signSession({ sub: 'admin-1', role: 'ADMIN' }, JWT_SECRET);
+const adminHeaders = { authorization: `Bearer ${ADMIN_TOKEN}` };
 
 function doctorAuthHeaders(doctorId: unknown) {
   return { authorization: `Bearer ${signSession({ sub: String(doctorId), role: 'DOCTOR' }, JWT_SECRET)}` };
@@ -50,18 +55,36 @@ function buildApp(): Express {
   const patientRepository = new InMemoryPatientRepository();
   const doctorRepository = new InMemoryDoctorRepository();
   const appointmentRepository = new InMemoryAppointmentRepository();
+  const clinicalRecordRepository = new InMemoryClinicalRecordRepository();
   const prescriptionRepository = new InMemoryPrescriptionRepository();
   const auditEventRepository = new InMemoryAuditEventRepository();
 
   app.use('/api/v1/patients', patientsRouter({ repository: patientRepository, cpfHmacSecret: CPF_HMAC_SECRET, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }));
   app.use('/api/v1/doctors', doctorsRouter({ repository: doctorRepository, licenseHmacSecret: LICENSE_HMAC_SECRET, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }));
-  app.use('/api/v1/admin/doctors', adminDoctorsRouter({ repository: doctorRepository, auditEventRepository }));
+  app.use(
+    '/api/v1/admin/doctors',
+    requireAuth(JWT_SECRET),
+    requireRole('ADMIN'),
+    adminDoctorsRouter({ repository: doctorRepository, auditEventRepository }),
+  );
+  app.use(
+    '/api/v1/admin/audit-events',
+    requireAuth(JWT_SECRET),
+    requireRole('ADMIN'),
+    adminAuditRouter({ repository: auditEventRepository }),
+  );
   app.use('/api/v1/secretary/appointments', secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository }));
   app.use(
     '/api/v1/doctor/appointments',
     requireAuth(JWT_SECRET),
     requireRole('DOCTOR'),
     doctorAppointmentsRouter({ appointmentRepository, patientRepository }),
+  );
+  app.use(
+    '/api/v1/doctor',
+    requireAuth(JWT_SECRET),
+    requireRole('DOCTOR'),
+    clinicalRecordsRouter({ appointmentRepository, clinicalRecordRepository, auditEventRepository, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }),
   );
   app.use(
     '/api/v1/doctor',
@@ -83,6 +106,10 @@ function post(url: string, body?: unknown, headers: Record<string, string> = {})
   return fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: body === undefined ? undefined : JSON.stringify(body) });
 }
 
+function patch(url: string, body?: unknown, headers: Record<string, string> = {}) {
+  return fetch(url, { method: 'PATCH', headers: { 'content-type': 'application/json', ...headers }, body: body === undefined ? undefined : JSON.stringify(body) });
+}
+
 function get(url: string, headers: Record<string, string> = {}) {
   return fetch(url, { headers });
 }
@@ -91,13 +118,13 @@ function json(response: Response): Promise<Record<string, unknown>> {
   return response.json() as Promise<Record<string, unknown>>;
 }
 
-async function seedInProgressAppointment(base: string) {
+async function seedApprovedDoctorWithAppointment(base: string) {
   const patientResponse = await post(`${base}/patients/register`, patientPayload);
   const { id: patientId } = await json(patientResponse);
 
   const doctorResponse = await post(`${base}/doctors/register`, doctorPayload);
   const { id: doctorId } = await json(doctorResponse);
-  await post(`${base}/admin/doctors/${doctorId}/approve`, {});
+  await post(`${base}/admin/doctors/${doctorId}/approve`, {}, adminHeaders);
 
   const appointmentResponse = await post(`${base}/secretary/appointments`, {
     patient_id: patientId,
@@ -112,132 +139,94 @@ async function seedInProgressAppointment(base: string) {
   return { patientId: patientId as string, doctorId: doctorId as string, appointmentId: appointmentId as string };
 }
 
-test('creates a draft prescription with items', async () => {
+test('records an audit event when a doctor is approved', async () => {
   const { server, base } = await startServer(buildApp());
   try {
-    const { doctorId, appointmentId } = await seedInProgressAppointment(base);
-    const response = await post(
-      `${base}/doctor/appointments/${appointmentId}/prescriptions`,
-      { items: [{ medication_name: 'Losartana', dosage: '50mg', frequency: '1x ao dia' }] },
-      doctorAuthHeaders(doctorId),
-    );
-    assert.equal(response.status, 201);
-    const body = await json(response);
-    assert.equal(body.status, 'DRAFT');
-  } finally {
-    server.close();
-  }
-});
+    const { doctorId } = await seedApprovedDoctorWithAppointment(base);
 
-test('fetches the draft back with its items (GET)', async () => {
-  const { server, base } = await startServer(buildApp());
-  try {
-    const { doctorId, appointmentId } = await seedInProgressAppointment(base);
-    await post(
-      `${base}/doctor/appointments/${appointmentId}/prescriptions`,
-      { items: [{ medication_name: 'Losartana', dosage: '50mg' }] },
-      doctorAuthHeaders(doctorId),
-    );
-
-    const response = await get(`${base}/doctor/appointments/${appointmentId}/prescription`, doctorAuthHeaders(doctorId));
+    const response = await get(`${base}/admin/audit-events?action=doctor.approved`, adminHeaders);
     assert.equal(response.status, 200);
     const body = await json(response);
     const items = body.items as Array<Record<string, unknown>>;
-    assert.equal(items[0].medication_name, 'Losartana');
+    assert.equal(items.length, 1);
+    assert.equal(items[0].resource_id, doctorId);
+    assert.equal(items[0].result, 'SUCCESS');
   } finally {
     server.close();
   }
 });
 
-test('rejects an item without medication_name', async () => {
+test('records audit events for clinical record create/update/finalize', async () => {
   const { server, base } = await startServer(buildApp());
   try {
-    const { doctorId, appointmentId } = await seedInProgressAppointment(base);
-    const response = await post(
-      `${base}/doctor/appointments/${appointmentId}/prescriptions`,
-      { items: [{ dosage: '50mg' }] },
-      doctorAuthHeaders(doctorId),
-    );
-    assert.equal(response.status, 400);
+    const { doctorId, appointmentId } = await seedApprovedDoctorWithAppointment(base);
+
+    const createResponse = await post(`${base}/doctor/appointments/${appointmentId}/clinical-records`, {}, doctorAuthHeaders(doctorId));
+    const { id: recordId } = await json(createResponse);
+    await patch(`${base}/doctor/clinical-records/${recordId}`, { assessment: 'x', instructions: 'y' }, doctorAuthHeaders(doctorId));
+    await post(`${base}/doctor/clinical-records/${recordId}/finalize`, { release_to_patient: true }, doctorAuthHeaders(doctorId));
+
+    const response = await get(`${base}/admin/audit-events?resource_type=clinical_record`, adminHeaders);
     const body = await json(response);
-    assert.equal(body.code, 'INVALID_ITEMS');
+    const items = body.items as Array<Record<string, unknown>>;
+    const actions = items.map((item) => item.action).sort();
+    assert.deepEqual(actions, ['clinical_record.created', 'clinical_record.finalized', 'clinical_record.updated']);
   } finally {
     server.close();
   }
 });
 
-test('rejects finalizing with no items and no_medication_needed unset', async () => {
+test('records an audit event for prescription finalize', async () => {
   const { server, base } = await startServer(buildApp());
   try {
-    const { doctorId, appointmentId } = await seedInProgressAppointment(base);
-    const createResponse = await post(`${base}/doctor/appointments/${appointmentId}/prescriptions`, {}, doctorAuthHeaders(doctorId));
-    const { id: prescriptionId } = await json(createResponse);
+    const { doctorId, appointmentId } = await seedApprovedDoctorWithAppointment(base);
 
-    const response = await post(`${base}/doctor/prescriptions/${prescriptionId}/finalize`, {}, doctorAuthHeaders(doctorId));
-    assert.equal(response.status, 400);
-    const body = await json(response);
-    assert.equal(body.code, 'PRESCRIPTION_REQUIRES_ITEMS');
-  } finally {
-    server.close();
-  }
-});
-
-test('finalizes a prescription with items', async () => {
-  const { server, base } = await startServer(buildApp());
-  try {
-    const { doctorId, appointmentId } = await seedInProgressAppointment(base);
     const createResponse = await post(
       `${base}/doctor/appointments/${appointmentId}/prescriptions`,
       { items: [{ medication_name: 'Losartana' }] },
       doctorAuthHeaders(doctorId),
     );
     const { id: prescriptionId } = await json(createResponse);
+    await post(`${base}/doctor/prescriptions/${prescriptionId}/finalize`, {}, doctorAuthHeaders(doctorId));
 
-    const response = await post(`${base}/doctor/prescriptions/${prescriptionId}/finalize`, {}, doctorAuthHeaders(doctorId));
-    assert.equal(response.status, 200);
+    const response = await get(`${base}/admin/audit-events?action=prescription.finalized`, adminHeaders);
     const body = await json(response);
-    assert.equal(body.status, 'FINALIZED');
-    assert.ok(body.issued_at);
+    const items = body.items as Array<Record<string, unknown>>;
+    assert.equal(items.length, 1);
+    assert.equal(items[0].resource_id, prescriptionId);
   } finally {
     server.close();
   }
 });
 
-test('finalizes a prescription explicitly marked as not needed', async () => {
+test('never exposes clinical content, only ids and metadata', async () => {
   const { server, base } = await startServer(buildApp());
   try {
-    const { doctorId, appointmentId } = await seedInProgressAppointment(base);
-    const createResponse = await post(
-      `${base}/doctor/appointments/${appointmentId}/prescriptions`,
-      { no_medication_needed: true },
+    const { doctorId, appointmentId } = await seedApprovedDoctorWithAppointment(base);
+    const createResponse = await post(`${base}/doctor/appointments/${appointmentId}/clinical-records`, {}, doctorAuthHeaders(doctorId));
+    const { id: recordId } = await json(createResponse);
+    await patch(
+      `${base}/doctor/clinical-records/${recordId}`,
+      { assessment: 'informação clínica sensível', instructions: 'y' },
       doctorAuthHeaders(doctorId),
     );
-    const { id: prescriptionId } = await json(createResponse);
 
-    const response = await post(`${base}/doctor/prescriptions/${prescriptionId}/finalize`, {}, doctorAuthHeaders(doctorId));
-    assert.equal(response.status, 200);
+    const response = await get(`${base}/admin/audit-events?resource_type=clinical_record`, adminHeaders);
+    const raw = await response.text();
+    assert.equal(raw.includes('informação clínica sensível'), false);
   } finally {
     server.close();
   }
 });
 
-test('rejects access from a doctor not linked to the prescription', async () => {
+test('rejects audit log access without a valid admin token', async () => {
   const { server, base } = await startServer(buildApp());
   try {
-    const { doctorId, appointmentId } = await seedInProgressAppointment(base);
-    const createResponse = await post(
-      `${base}/doctor/appointments/${appointmentId}/prescriptions`,
-      { items: [{ medication_name: 'Losartana' }] },
-      doctorAuthHeaders(doctorId),
-    );
-    const { id: prescriptionId } = await json(createResponse);
+    const noToken = await get(`${base}/admin/audit-events`);
+    assert.equal(noToken.status, 401);
 
-    const response = await post(
-      `${base}/doctor/prescriptions/${prescriptionId}/finalize`,
-      {},
-      doctorAuthHeaders('00000000-0000-0000-0000-000000000000'),
-    );
-    assert.equal(response.status, 403);
+    const wrongRole = await get(`${base}/admin/audit-events`, doctorAuthHeaders('someone'));
+    assert.equal(wrongRole.status, 403);
   } finally {
     server.close();
   }

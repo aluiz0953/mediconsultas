@@ -10,6 +10,7 @@ import { authRouter } from './routes/auth.js';
 import { patientsRouter } from './routes/patients.js';
 import { doctorsRouter } from './routes/doctors.js';
 import { adminDoctorsRouter } from './routes/admin-doctors.js';
+import { adminAuditRouter } from './routes/admin-audit.js';
 import { secretaryAppointmentsRouter } from './routes/secretary-appointments.js';
 import { doctorAppointmentsRouter } from './routes/doctor-appointments.js';
 import { clinicalRecordsRouter } from './routes/clinical-records.js';
@@ -22,6 +23,7 @@ import { PgDoctorRepository } from './repositories/doctor-repository.js';
 import { PgAppointmentRepository } from './repositories/appointment-repository.js';
 import { PgClinicalRecordRepository } from './repositories/clinical-record-repository.js';
 import { PgPrescriptionRepository } from './repositories/prescription-repository.js';
+import { PgAuditEventRepository } from './repositories/audit-event-repository.js';
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -39,6 +41,8 @@ const FIELD_ENCRYPTION_KEY = requireEnv('FIELD_ENCRYPTION_KEY');
 const app = express();
 app.use(express.json());
 app.use('/api/v1/auth', authRouter(JWT_SECRET));
+
+const auditEventRepository = new PgAuditEventRepository(pool);
 
 const patientRepository = new PgPatientRepository(pool);
 app.use(
@@ -63,7 +67,13 @@ app.use(
   '/api/v1/admin/doctors',
   requireAuth(JWT_SECRET),
   requireRole('ADMIN'),
-  adminDoctorsRouter({ repository: doctorRepository }),
+  adminDoctorsRouter({ repository: doctorRepository, auditEventRepository }),
+);
+app.use(
+  '/api/v1/admin/audit-events',
+  requireAuth(JWT_SECRET),
+  requireRole('ADMIN'),
+  adminAuditRouter({ repository: auditEventRepository }),
 );
 
 const appointmentRepository = new PgAppointmentRepository(pool);
@@ -85,7 +95,7 @@ app.use(
   '/api/v1/doctor',
   requireAuth(JWT_SECRET),
   requireRole('DOCTOR'),
-  clinicalRecordsRouter({ appointmentRepository, clinicalRecordRepository, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }),
+  clinicalRecordsRouter({ appointmentRepository, clinicalRecordRepository, auditEventRepository, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }),
 );
 
 const prescriptionRepository = new PgPrescriptionRepository(pool);
@@ -93,7 +103,7 @@ app.use(
   '/api/v1/doctor',
   requireAuth(JWT_SECRET),
   requireRole('DOCTOR'),
-  prescriptionsRouter({ appointmentRepository, prescriptionRepository }),
+  prescriptionsRouter({ appointmentRepository, prescriptionRepository, auditEventRepository }),
 );
 
 app.use(
