@@ -1,10 +1,15 @@
 import { Router } from 'express';
 import type { AppointmentRepository } from '../repositories/appointment-repository.js';
 import type { PrescriptionItem, PrescriptionRepository } from '../repositories/prescription-repository.js';
+import type { DoctorRepository } from '../repositories/doctor-repository.js';
+import { decryptField } from '../crypto/field-encryption.js';
+import { renderPrescriptionPdf } from '../pdf/prescription-pdf.js';
 
 export interface PrescriptionsRouterConfig {
   appointmentRepository: AppointmentRepository;
   prescriptionRepository: PrescriptionRepository;
+  doctorRepository: DoctorRepository;
+  fieldEncryptionKey: string;
 }
 
 function parseItems(body: unknown): PrescriptionItem[] | null {
@@ -184,6 +189,31 @@ export function prescriptionsRouter(config: PrescriptionsRouterConfig): Router {
       version: updated!.version,
       status: updated!.status,
       issued_at: updated!.issuedAt?.toISOString() ?? null,
+    });
+  });
+
+  // RF-09: printable PDF of a finalized prescription, for the issuing doctor.
+  router.get('/prescriptions/:prescriptionId/pdf', async (req, res) => {
+    const record = await config.prescriptionRepository.findById(req.params.prescriptionId);
+    if (!record || record.status !== 'FINALIZED') {
+      res.status(404).json({ code: 'PRESCRIPTION_NOT_FOUND', message: 'Receita não encontrada ou não finalizada.' });
+      return;
+    }
+    if (record.doctorId !== req.user!.sub) {
+      res.status(403).json({ code: 'RESOURCE_ACCESS_DENIED', message: 'Você não tem permissão para acessar este recurso.' });
+      return;
+    }
+
+    const doctor = await config.doctorRepository.findById(record.doctorId);
+    const licenseNumber = doctor ? decryptField(doctor.licenseNumberCiphertext, config.fieldEncryptionKey) : 'N/D';
+
+    renderPrescriptionPdf(res, {
+      prescriptionId: record.id,
+      issuedAt: record.issuedAt,
+      items: record.items,
+      noMedicationNeeded: record.noMedicationNeeded,
+      doctorName: doctor?.fullName ?? 'Médico(a)',
+      doctorLicense: `CRM ${licenseNumber}/${doctor?.licenseState ?? 'N/D'}`,
     });
   });
 

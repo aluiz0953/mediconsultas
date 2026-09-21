@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { apiFetch, ApiError } from '../../lib/api'
+import { apiFetch, ApiError, openPdf } from '../../lib/api'
 
 interface ClinicalRecordContent {
   chief_complaint: string
@@ -299,7 +299,18 @@ export function ConsultationPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Receita médica</h2>
           {prescription && (
-            <span className="text-xs text-slate-500 dark:text-slate-400">{prescription.status === 'DRAFT' ? 'Rascunho' : 'Finalizada'}</span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 dark:text-slate-400">{prescription.status === 'DRAFT' ? 'Rascunho' : 'Finalizada'}</span>
+              {prescription.status === 'FINALIZED' && (
+                <button
+                  type="button"
+                  onClick={() => openPdf(`/api/v1/doctor/prescriptions/${prescription.id}/pdf`)}
+                  className="rounded-md border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"
+                >
+                  Baixar PDF
+                </button>
+              )}
+            </div>
           )}
         </div>
 

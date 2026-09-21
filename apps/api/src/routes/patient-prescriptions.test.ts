@@ -70,13 +70,13 @@ function buildApp(): Express {
     '/api/v1/doctor',
     requireAuth(JWT_SECRET),
     requireRole('DOCTOR'),
-    prescriptionsRouter({ appointmentRepository, prescriptionRepository }),
+    prescriptionsRouter({ appointmentRepository, prescriptionRepository, doctorRepository, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }),
   );
   app.use(
     '/api/v1/patient/prescriptions',
     requireAuth(JWT_SECRET),
     requireRole('PATIENT'),
-    patientPrescriptionsRouter({ prescriptionRepository, doctorRepository }),
+    patientPrescriptionsRouter({ prescriptionRepository, doctorRepository, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }),
   );
   return app;
 }
@@ -154,6 +154,45 @@ test('reads a finalized prescription with items', async () => {
     const body = await json(response);
     const items = body.items as Record<string, unknown>[];
     assert.equal(items[0].medication_name, 'Losartana');
+  } finally {
+    server.close();
+  }
+});
+
+test('downloads the PDF of a finalized prescription (RF-09)', async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const { patientId, prescriptionId } = await seedFinalizedPrescription(base, true);
+    const response = await get(`${base}/patient/prescriptions/${prescriptionId}/pdf`, patientAuthHeaders(patientId));
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('content-type'), 'application/pdf');
+    const buffer = await response.arrayBuffer();
+    assert.ok(buffer.byteLength > 0);
+  } finally {
+    server.close();
+  }
+});
+
+test('hides the PDF of a draft prescription from the patient', async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const { patientId, prescriptionId } = await seedFinalizedPrescription(base, false);
+    const response = await get(`${base}/patient/prescriptions/${prescriptionId}/pdf`, patientAuthHeaders(patientId));
+    assert.equal(response.status, 404);
+  } finally {
+    server.close();
+  }
+});
+
+test("does not let a patient download another patient's prescription PDF", async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const { prescriptionId } = await seedFinalizedPrescription(base, true);
+    const response = await get(
+      `${base}/patient/prescriptions/${prescriptionId}/pdf`,
+      patientAuthHeaders('00000000-0000-0000-0000-000000000000'),
+    );
+    assert.equal(response.status, 404);
   } finally {
     server.close();
   }
