@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+/* Manual dark mode: toggle the `dark` class on <html> instead of following
+   only prefers-color-scheme, so the ThemeToggle button actually works. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+body {
+  @apply bg-slate-50 text-slate-900 dark:bg-gray-900 dark:text-slate-100;
+}
