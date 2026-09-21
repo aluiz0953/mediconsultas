@@ -2,11 +2,14 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { ProtectedRoute, PublicOnlyRoute, RequireRole } from './routes/guards'
 import { LoginPage } from './pages/LoginPage'
+import { RegisterPage } from './pages/RegisterPage'
 import { HomePage } from './pages/HomePage'
 import { PendingDoctorsPage } from './pages/admin/PendingDoctorsPage'
 import { SchedulePage } from './pages/secretary/SchedulePage'
 import { QueuePage } from './pages/doctor/QueuePage'
 import { ConsultationPage } from './pages/doctor/ConsultationPage'
+import { AppointmentsPage } from './pages/patient/AppointmentsPage'
+import { RecordsPage } from './pages/patient/RecordsPage'
 
 function App() {
   return (
@@ -17,6 +20,14 @@ function App() {
           element={
             <PublicOnlyRoute>
               <LoginPage />
+            </PublicOnlyRoute>
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <PublicOnlyRoute>
+              <RegisterPage />
             </PublicOnlyRoute>
           }
         />
@@ -36,6 +47,11 @@ function App() {
             <Route element={<RequireRole roles={['DOCTOR']} />}>
               <Route path="/doctor/queue" element={<QueuePage />} />
               <Route path="/doctor/appointments/:appointmentId" element={<ConsultationPage />} />
+            </Route>
+
+            <Route element={<RequireRole roles={['PATIENT']} />}>
+              <Route path="/patient/appointments" element={<AppointmentsPage />} />
+              <Route path="/patient/records" element={<RecordsPage />} />
             </Route>
           </Route>
         </Route>

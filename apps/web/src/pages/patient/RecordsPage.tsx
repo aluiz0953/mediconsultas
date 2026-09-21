@@ -1,0 +1,183 @@
+import { useEffect, useState } from 'react'
+import { apiFetch, ApiError } from '../../lib/api'
+
+interface ClinicalRecordSummary {
+  id: string
+  version: number
+  doctor: { id: string; display_name: string } | null
+  finalized_at: string | null
+  released_at: string | null
+}
+
+interface ClinicalRecordDetail extends ClinicalRecordSummary {
+  content: {
+    chief_complaint?: string
+    assessment?: string
+    instructions?: string
+    conduct?: string
+    medications?: string
+    recommended_exams?: string
+    notes?: string
+  }
+}
+
+interface PrescriptionItem {
+  medication_name: string
+  strength: string | null
+  presentation: string | null
+  dosage: string | null
+  frequency: string | null
+  duration: string | null
+  quantity: string | null
+  instructions: string | null
+}
+
+interface PrescriptionSummary {
+  id: string
+  version: number
+  doctor: { id: string; display_name: string } | null
+  issued_at: string | null
+  no_medication_needed: boolean
+}
+
+interface PrescriptionDetail extends PrescriptionSummary {
+  items: PrescriptionItem[]
+}
+
+function formatDate(iso: string | null): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+}
+
+type Tab = 'orientacoes' | 'receitas'
+
+export function RecordsPage() {
+  const [tab, setTab] = useState<Tab>('orientacoes')
+  const [records, setRecords] = useState<ClinicalRecordDetail[] | null>(null)
+  const [prescriptions, setPrescriptions] = useState<PrescriptionDetail[] | null>(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    async function loadRecords() {
+      const list = await apiFetch<{ items: ClinicalRecordSummary[] }>('/api/v1/patient/clinical-records')
+      const details = await Promise.all(
+        list.items.map((item) => apiFetch<ClinicalRecordDetail>(`/api/v1/patient/clinical-records/${item.id}`)),
+      )
+      setRecords(details)
+    }
+
+    async function loadPrescriptions() {
+      const list = await apiFetch<{ items: PrescriptionSummary[] }>('/api/v1/patient/prescriptions')
+      const details = await Promise.all(
+        list.items.map((item) => apiFetch<PrescriptionDetail>(`/api/v1/patient/prescriptions/${item.id}`)),
+      )
+      setPrescriptions(details)
+    }
+
+    Promise.all([loadRecords(), loadPrescriptions()]).catch((err) =>
+      setError(err instanceof ApiError ? err.message : 'Falha ao carregar seus documentos.'),
+    )
+  }, [])
+
+  return (
+    <div>
+      <h1 className="text-xl font-semibold text-slate-900 dark:text-white">Meus documentos</h1>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        Só aparecem aqui orientações e receitas já finalizadas e liberadas pelo médico.
+      </p>
+
+      {error && (
+        <p role="alert" className="mt-4 text-sm text-red-600 dark:text-red-400">
+          {error}
+        </p>
+      )}
+
+      <div className="mt-6 flex gap-2 border-b border-slate-200 dark:border-gray-800">
+        <button
+          type="button"
+          onClick={() => setTab('orientacoes')}
+          className={`px-3 py-2 text-sm font-medium ${
+            tab === 'orientacoes'
+              ? 'border-b-2 border-emerald-600 text-slate-900 dark:text-white'
+              : 'text-slate-500 dark:text-slate-400'
+          }`}
+        >
+          Orientações
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('receitas')}
+          className={`px-3 py-2 text-sm font-medium ${
+            tab === 'receitas'
+              ? 'border-b-2 border-emerald-600 text-slate-900 dark:text-white'
+              : 'text-slate-500 dark:text-slate-400'
+          }`}
+        >
+          Receitas
+        </button>
+      </div>
+
+      {tab === 'orientacoes' ? (
+        <ul className="mt-6 space-y-4">
+          {records === null && !error && <p className="text-sm text-slate-500 dark:text-slate-400">Carregando…</p>}
+          {records?.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400">Nenhuma orientação liberada ainda.</p>}
+          {records?.map((record) => (
+            <li key={record.id} className="rounded-lg border border-slate-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+              <div className="flex items-center justify-between">
+                <p className="font-medium text-slate-900 dark:text-white">{record.doctor?.display_name ?? 'Médico'}</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">Liberado em {formatDate(record.released_at)}</p>
+              </div>
+              <dl className="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-300">
+                {record.content.assessment && (
+                  <div>
+                    <dt className="font-medium">Avaliação</dt>
+                    <dd className="whitespace-pre-wrap">{record.content.assessment}</dd>
+                  </div>
+                )}
+                {record.content.instructions && (
+                  <div>
+                    <dt className="font-medium">Orientações</dt>
+                    <dd className="whitespace-pre-wrap">{record.content.instructions}</dd>
+                  </div>
+                )}
+                {record.content.conduct && (
+                  <div>
+                    <dt className="font-medium">Conduta</dt>
+                    <dd className="whitespace-pre-wrap">{record.content.conduct}</dd>
+                  </div>
+                )}
+              </dl>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <ul className="mt-6 space-y-4">
+          {prescriptions === null && !error && <p className="text-sm text-slate-500 dark:text-slate-400">Carregando…</p>}
+          {prescriptions?.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400">Nenhuma receita finalizada ainda.</p>}
+          {prescriptions?.map((prescription) => (
+            <li key={prescription.id} className="rounded-lg border border-slate-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+              <div className="flex items-center justify-between">
+                <p className="font-medium text-slate-900 dark:text-white">{prescription.doctor?.display_name ?? 'Médico'}</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">Emitida em {formatDate(prescription.issued_at)}</p>
+              </div>
+              {prescription.no_medication_needed ? (
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Nenhuma medicação necessária.</p>
+              ) : (
+                <ul className="mt-2 space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                  {prescription.items.map((item, index) => (
+                    <li key={index}>
+                      <span className="font-medium">{item.medication_name}</span>
+                      {item.dosage ? ` — ${item.dosage}` : ''}
+                      {item.frequency ? `, ${item.frequency}` : ''}
+                      {item.duration ? `, ${item.duration}` : ''}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}

@@ -6,13 +6,10 @@ import { patientsRouter } from './patients.js';
 import { doctorsRouter } from './doctors.js';
 import { adminDoctorsRouter } from './admin-doctors.js';
 import { secretaryAppointmentsRouter } from './secretary-appointments.js';
-import { doctorAppointmentsRouter } from './doctor-appointments.js';
-import { clinicalRecordsRouter } from './clinical-records.js';
-import { patientClinicalRecordsRouter } from './patient-clinical-records.js';
+import { patientAppointmentsRouter } from './patient-appointments.js';
 import { InMemoryPatientRepository } from '../repositories/patient-repository.js';
 import { InMemoryDoctorRepository } from '../repositories/doctor-repository.js';
 import { InMemoryAppointmentRepository } from '../repositories/appointment-repository.js';
-import { InMemoryClinicalRecordRepository } from '../repositories/clinical-record-repository.js';
 import { requireAuth, requireRole } from '../auth/middleware.js';
 import { signSession } from '../auth/token.js';
 
@@ -21,12 +18,12 @@ const LICENSE_HMAC_SECRET = 'test-license-secret';
 const FIELD_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
 const JWT_SECRET = 'test-jwt-secret';
 
-function doctorAuthHeaders(doctorId: unknown) {
-  return { authorization: `Bearer ${signSession({ sub: String(doctorId), role: 'DOCTOR' }, JWT_SECRET)}` };
-}
-
 function patientAuthHeaders(patientId: unknown) {
   return { authorization: `Bearer ${signSession({ sub: String(patientId), role: 'PATIENT' }, JWT_SECRET)}` };
+}
+
+function doctorAuthHeaders(doctorId: unknown) {
+  return { authorization: `Bearer ${signSession({ sub: String(doctorId), role: 'DOCTOR' }, JWT_SECRET)}` };
 }
 
 const patientPayload = {
@@ -54,29 +51,16 @@ function buildApp(): Express {
   const patientRepository = new InMemoryPatientRepository();
   const doctorRepository = new InMemoryDoctorRepository();
   const appointmentRepository = new InMemoryAppointmentRepository();
-  const clinicalRecordRepository = new InMemoryClinicalRecordRepository();
 
   app.use('/api/v1/patients', patientsRouter({ repository: patientRepository, cpfHmacSecret: CPF_HMAC_SECRET, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }));
   app.use('/api/v1/doctors', doctorsRouter({ repository: doctorRepository, licenseHmacSecret: LICENSE_HMAC_SECRET, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }));
   app.use('/api/v1/admin/doctors', adminDoctorsRouter({ repository: doctorRepository }));
   app.use('/api/v1/secretary/appointments', secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository }));
   app.use(
-    '/api/v1/doctor/appointments',
-    requireAuth(JWT_SECRET),
-    requireRole('DOCTOR'),
-    doctorAppointmentsRouter({ appointmentRepository, patientRepository }),
-  );
-  app.use(
-    '/api/v1/doctor',
-    requireAuth(JWT_SECRET),
-    requireRole('DOCTOR'),
-    clinicalRecordsRouter({ appointmentRepository, clinicalRecordRepository, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }),
-  );
-  app.use(
-    '/api/v1/patient/clinical-records',
+    '/api/v1/patient/appointments',
     requireAuth(JWT_SECRET),
     requireRole('PATIENT'),
-    patientClinicalRecordsRouter({ clinicalRecordRepository, doctorRepository, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }),
+    patientAppointmentsRouter({ appointmentRepository, doctorRepository }),
   );
   return app;
 }
@@ -92,10 +76,6 @@ function post(url: string, body?: unknown, headers: Record<string, string> = {})
   return fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: body === undefined ? undefined : JSON.stringify(body) });
 }
 
-function patch(url: string, body?: unknown, headers: Record<string, string> = {}) {
-  return fetch(url, { method: 'PATCH', headers: { 'content-type': 'application/json', ...headers }, body: body === undefined ? undefined : JSON.stringify(body) });
-}
-
 function get(url: string, headers: Record<string, string> = {}) {
   return fetch(url, { headers });
 }
@@ -104,7 +84,7 @@ function json(response: Response): Promise<Record<string, unknown>> {
   return response.json() as Promise<Record<string, unknown>>;
 }
 
-async function seedFinalizedRecord(base: string, release: boolean) {
+async function seedAppointment(base: string) {
   const patientResponse = await post(`${base}/patients/register`, patientPayload);
   const { id: patientId } = await json(patientResponse);
 
@@ -115,75 +95,56 @@ async function seedFinalizedRecord(base: string, release: boolean) {
   const appointmentResponse = await post(`${base}/secretary/appointments`, {
     patient_id: patientId,
     doctor_id: doctorId,
-    created_by: doctorId,
     starts_at: '2026-10-01T13:00:00Z',
     ends_at: '2026-10-01T13:30:00Z',
   });
   const { id: appointmentId } = await json(appointmentResponse);
-  await post(`${base}/secretary/appointments/${appointmentId}/confirm`, {});
-  await post(`${base}/doctor/appointments/${appointmentId}/start`, undefined, doctorAuthHeaders(doctorId));
 
-  const createResponse = await post(`${base}/doctor/appointments/${appointmentId}/clinical-records`, {}, doctorAuthHeaders(doctorId));
-  const { id: recordId } = await json(createResponse);
-  await patch(
-    `${base}/doctor/clinical-records/${recordId}`,
-    { assessment: 'Hipertensão leve', instructions: 'Reduzir sal e retornar em 30 dias' },
-    doctorAuthHeaders(doctorId),
-  );
-  await post(
-    `${base}/doctor/clinical-records/${recordId}/finalize`,
-    { release_to_patient: release },
-    doctorAuthHeaders(doctorId),
-  );
-
-  return { patientId: patientId as string, doctorId: doctorId as string, recordId: recordId as string };
+  return { patientId: patientId as string, doctorId: doctorId as string, appointmentId: appointmentId as string };
 }
 
-test('lists released records for the patient', async () => {
+test('lists only the authenticated patient\'s own appointments (PAT-04)', async () => {
   const { server, base } = await startServer(buildApp());
   try {
-    const { patientId } = await seedFinalizedRecord(base, true);
-    const response = await get(`${base}/patient/clinical-records`, patientAuthHeaders(patientId));
+    const { patientId, appointmentId } = await seedAppointment(base);
+
+    const response = await get(`${base}/patient/appointments`, patientAuthHeaders(patientId));
     assert.equal(response.status, 200);
     const body = await json(response);
-    assert.equal((body.items as unknown[]).length, 1);
+    const items = body.items as Array<Record<string, unknown>>;
+    assert.equal(items.length, 1);
+    assert.equal(items[0].id, appointmentId);
+
+    const otherPatient = await get(`${base}/patient/appointments`, patientAuthHeaders('00000000-0000-0000-0000-000000000000'));
+    const otherBody = await json(otherPatient);
+    assert.equal((otherBody.items as unknown[]).length, 0);
   } finally {
     server.close();
   }
 });
 
-test('reads a released record with decrypted content', async () => {
+test('reads the detail of an own appointment (PAT-05)', async () => {
   const { server, base } = await startServer(buildApp());
   try {
-    const { patientId, recordId } = await seedFinalizedRecord(base, true);
-    const response = await get(`${base}/patient/clinical-records/${recordId}`, patientAuthHeaders(patientId));
+    const { patientId, doctorId, appointmentId } = await seedAppointment(base);
+
+    const response = await get(`${base}/patient/appointments/${appointmentId}`, patientAuthHeaders(patientId));
     assert.equal(response.status, 200);
     const body = await json(response);
-    const content = body.content as Record<string, unknown>;
-    assert.equal(content.assessment, 'Hipertensão leve');
-    assert.equal(content.instructions, 'Reduzir sal e retornar em 30 dias');
+    assert.equal(body.id, appointmentId);
+    assert.equal((body.doctor as Record<string, unknown>).id, doctorId);
   } finally {
     server.close();
   }
 });
 
-test('hides a finalized record that was not released', async () => {
+test("returns 404 for another patient's appointment (no enumeration)", async () => {
   const { server, base } = await startServer(buildApp());
   try {
-    const { patientId, recordId } = await seedFinalizedRecord(base, false);
-    const response = await get(`${base}/patient/clinical-records/${recordId}`, patientAuthHeaders(patientId));
-    assert.equal(response.status, 404);
-  } finally {
-    server.close();
-  }
-});
+    const { appointmentId } = await seedAppointment(base);
 
-test("does not let a patient read another patient's record", async () => {
-  const { server, base } = await startServer(buildApp());
-  try {
-    const { recordId } = await seedFinalizedRecord(base, true);
     const response = await get(
-      `${base}/patient/clinical-records/${recordId}`,
+      `${base}/patient/appointments/${appointmentId}`,
       patientAuthHeaders('00000000-0000-0000-0000-000000000000'),
     );
     assert.equal(response.status, 404);
@@ -195,12 +156,10 @@ test("does not let a patient read another patient's record", async () => {
 test('rejects requests without a valid patient token', async () => {
   const { server, base } = await startServer(buildApp());
   try {
-    const { recordId } = await seedFinalizedRecord(base, true);
-
-    const noToken = await get(`${base}/patient/clinical-records`);
+    const noToken = await get(`${base}/patient/appointments`);
     assert.equal(noToken.status, 401);
 
-    const wrongRole = await get(`${base}/patient/clinical-records/${recordId}`, doctorAuthHeaders('someone'));
+    const wrongRole = await get(`${base}/patient/appointments`, doctorAuthHeaders('someone'));
     assert.equal(wrongRole.status, 403);
   } finally {
     server.close();

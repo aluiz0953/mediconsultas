@@ -10,20 +10,14 @@ export interface PatientClinicalRecordsRouterConfig {
   fieldEncryptionKey: string;
 }
 
-// ponytail: patient_id comes from a query param until an auth middleware exists
-// to derive it from the JWT (req.user.sub) instead — same placeholder pattern
-// used elsewhere (doctor_id/approved_by in request bodies).
+// patient_id is derived from the authenticated JWT (req.user.sub) — this
+// router must always be mounted behind requireAuth + requireRole('PATIENT').
 export function patientClinicalRecordsRouter(config: PatientClinicalRecordsRouterConfig): Router {
   const router = Router();
 
   // PAT-06: list only finalized + released records — drafts never reach the patient.
   router.get('/', async (req, res) => {
-    const patientId = req.query.patient_id;
-    if (typeof patientId !== 'string') {
-      res.status(400).json({ code: 'INVALID_INPUT', message: 'patient_id é obrigatório.' });
-      return;
-    }
-
+    const patientId = req.user!.sub;
     const records = await config.clinicalRecordRepository.listReleasedByPatientId(patientId);
     const items = await Promise.all(
       records.map(async (record) => {
@@ -42,11 +36,7 @@ export function patientClinicalRecordsRouter(config: PatientClinicalRecordsRoute
 
   // PAT-06: view one released record, read-only, with the decrypted clinical content.
   router.get('/:recordId', async (req, res) => {
-    const patientId = req.query.patient_id;
-    if (typeof patientId !== 'string') {
-      res.status(400).json({ code: 'INVALID_INPUT', message: 'patient_id é obrigatório.' });
-      return;
-    }
+    const patientId = req.user!.sub;
 
     const record = await config.clinicalRecordRepository.findById(req.params.recordId);
     // Same 404 whether it doesn't exist, belongs to someone else, or isn't released yet — no enumeration.

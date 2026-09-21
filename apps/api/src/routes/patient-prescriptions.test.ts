@@ -25,6 +25,10 @@ function doctorAuthHeaders(doctorId: unknown) {
   return { authorization: `Bearer ${signSession({ sub: String(doctorId), role: 'DOCTOR' }, JWT_SECRET)}` };
 }
 
+function patientAuthHeaders(patientId: unknown) {
+  return { authorization: `Bearer ${signSession({ sub: String(patientId), role: 'PATIENT' }, JWT_SECRET)}` };
+}
+
 const patientPayload = {
   full_name: 'Maria Souza',
   cpf: '111.444.777-35',
@@ -68,7 +72,12 @@ function buildApp(): Express {
     requireRole('DOCTOR'),
     prescriptionsRouter({ appointmentRepository, prescriptionRepository }),
   );
-  app.use('/api/v1/patient/prescriptions', patientPrescriptionsRouter({ prescriptionRepository, doctorRepository }));
+  app.use(
+    '/api/v1/patient/prescriptions',
+    requireAuth(JWT_SECRET),
+    requireRole('PATIENT'),
+    patientPrescriptionsRouter({ prescriptionRepository, doctorRepository }),
+  );
   return app;
 }
 
@@ -81,6 +90,10 @@ async function startServer(app: Express) {
 
 function post(url: string, body?: unknown, headers: Record<string, string> = {}) {
   return fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: body === undefined ? undefined : JSON.stringify(body) });
+}
+
+function get(url: string, headers: Record<string, string> = {}) {
+  return fetch(url, { headers });
 }
 
 function json(response: Response): Promise<Record<string, unknown>> {
@@ -123,7 +136,7 @@ test('lists finalized prescriptions for the patient', async () => {
   const { server, base } = await startServer(buildApp());
   try {
     const { patientId } = await seedFinalizedPrescription(base, true);
-    const response = await fetch(`${base}/patient/prescriptions?patient_id=${patientId}`);
+    const response = await get(`${base}/patient/prescriptions`, patientAuthHeaders(patientId));
     assert.equal(response.status, 200);
     const body = await json(response);
     assert.equal((body.items as unknown[]).length, 1);
@@ -136,7 +149,7 @@ test('reads a finalized prescription with items', async () => {
   const { server, base } = await startServer(buildApp());
   try {
     const { patientId, prescriptionId } = await seedFinalizedPrescription(base, true);
-    const response = await fetch(`${base}/patient/prescriptions/${prescriptionId}?patient_id=${patientId}`);
+    const response = await get(`${base}/patient/prescriptions/${prescriptionId}`, patientAuthHeaders(patientId));
     assert.equal(response.status, 200);
     const body = await json(response);
     const items = body.items as Record<string, unknown>[];
@@ -150,19 +163,35 @@ test('hides a draft prescription from the patient', async () => {
   const { server, base } = await startServer(buildApp());
   try {
     const { patientId, prescriptionId } = await seedFinalizedPrescription(base, false);
-    const response = await fetch(`${base}/patient/prescriptions/${prescriptionId}?patient_id=${patientId}`);
+    const response = await get(`${base}/patient/prescriptions/${prescriptionId}`, patientAuthHeaders(patientId));
     assert.equal(response.status, 404);
   } finally {
     server.close();
   }
 });
 
-test('does not let a patient read another patient\'s prescription', async () => {
+test("does not let a patient read another patient's prescription", async () => {
   const { server, base } = await startServer(buildApp());
   try {
     const { prescriptionId } = await seedFinalizedPrescription(base, true);
-    const response = await fetch(`${base}/patient/prescriptions/${prescriptionId}?patient_id=00000000-0000-0000-0000-000000000000`);
+    const response = await get(
+      `${base}/patient/prescriptions/${prescriptionId}`,
+      patientAuthHeaders('00000000-0000-0000-0000-000000000000'),
+    );
     assert.equal(response.status, 404);
+  } finally {
+    server.close();
+  }
+});
+
+test('rejects requests without a valid patient token', async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const noToken = await get(`${base}/patient/prescriptions`);
+    assert.equal(noToken.status, 401);
+
+    const wrongRole = await get(`${base}/patient/prescriptions`, doctorAuthHeaders('someone'));
+    assert.equal(wrongRole.status, 403);
   } finally {
     server.close();
   }

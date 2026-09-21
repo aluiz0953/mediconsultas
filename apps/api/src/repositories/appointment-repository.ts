@@ -33,6 +33,8 @@ export interface AppointmentRepository {
   updateStatus(id: string, status: AppointmentStatus): Promise<AppointmentRecord | undefined>;
   listByDateRange(from: Date, to: Date): Promise<AppointmentRecord[]>;
   listByDoctorAndDateRange(doctorId: string, from: Date, to: Date): Promise<AppointmentRecord[]>;
+  // PAT-04: every appointment ever booked for this patient, most recent first.
+  listByPatientId(patientId: string): Promise<AppointmentRecord[]>;
 }
 
 // ponytail: Map-based stand-in for the pg-backed repository (appointments table
@@ -83,6 +85,12 @@ export class InMemoryAppointmentRepository implements AppointmentRepository {
   async listByDoctorAndDateRange(doctorId: string, from: Date, to: Date): Promise<AppointmentRecord[]> {
     const inRange = await this.listByDateRange(from, to);
     return inRange.filter((appt) => appt.doctorId === doctorId);
+  }
+
+  async listByPatientId(patientId: string): Promise<AppointmentRecord[]> {
+    return [...this.byId.values()]
+      .filter((appt) => appt.patientId === patientId)
+      .sort((a, b) => b.startsAt.getTime() - a.startsAt.getTime());
   }
 }
 
@@ -153,6 +161,14 @@ export class PgAppointmentRepository implements AppointmentRepository {
     const result = await this.pool.query(
       `SELECT * FROM appointments WHERE doctor_id = $1 AND starts_at >= $2 AND starts_at < $3 ORDER BY starts_at`,
       [doctorId, from, to],
+    );
+    return result.rows.map(mapAppointmentRow);
+  }
+
+  async listByPatientId(patientId: string): Promise<AppointmentRecord[]> {
+    const result = await this.pool.query(
+      `SELECT * FROM appointments WHERE patient_id = $1 ORDER BY starts_at DESC`,
+      [patientId],
     );
     return result.rows.map(mapAppointmentRow);
   }

@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { setToken } from '../lib/auth'
 import { ThemeToggle } from '../components/ThemeToggle'
 
@@ -16,6 +16,8 @@ interface ApiError {
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const justRegistered = Boolean((location.state as { justRegistered?: boolean } | null)?.justRegistered)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
@@ -61,6 +63,12 @@ export function LoginPage() {
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Acesse sua conta do MediConsultas
         </p>
+
+        {justRegistered && (
+          <p role="status" className="mt-4 text-sm text-emerald-600 dark:text-emerald-400">
+            Conta criada com sucesso. Entre com seu e-mail e senha.
+          </p>
+        )}
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <div>
@@ -113,6 +121,13 @@ export function LoginPage() {
             {status === 'loading' ? 'Entrando…' : 'Entrar'}
           </button>
         </form>
+
+        <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
+          Ainda não tem conta?{' '}
+          <Link to="/register" className="font-medium text-emerald-700 hover:underline dark:text-emerald-400">
+            Cadastre-se como paciente
+          </Link>
+        </p>
       </div>
     </div>
   )

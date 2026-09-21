@@ -16,6 +16,7 @@ import { clinicalRecordsRouter } from './routes/clinical-records.js';
 import { prescriptionsRouter } from './routes/prescriptions.js';
 import { patientClinicalRecordsRouter } from './routes/patient-clinical-records.js';
 import { patientPrescriptionsRouter } from './routes/patient-prescriptions.js';
+import { patientAppointmentsRouter } from './routes/patient-appointments.js';
 import { PgPatientRepository } from './repositories/patient-repository.js';
 import { PgDoctorRepository } from './repositories/doctor-repository.js';
 import { PgAppointmentRepository } from './repositories/appointment-repository.js';
@@ -97,9 +98,22 @@ app.use(
 
 app.use(
   '/api/v1/patient/clinical-records',
+  requireAuth(JWT_SECRET),
+  requireRole('PATIENT'),
   patientClinicalRecordsRouter({ clinicalRecordRepository, doctorRepository, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }),
 );
-app.use('/api/v1/patient/prescriptions', patientPrescriptionsRouter({ prescriptionRepository, doctorRepository }));
+app.use(
+  '/api/v1/patient/prescriptions',
+  requireAuth(JWT_SECRET),
+  requireRole('PATIENT'),
+  patientPrescriptionsRouter({ prescriptionRepository, doctorRepository }),
+);
+app.use(
+  '/api/v1/patient/appointments',
+  requireAuth(JWT_SECRET),
+  requireRole('PATIENT'),
+  patientAppointmentsRouter({ appointmentRepository, doctorRepository }),
+);
 
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);

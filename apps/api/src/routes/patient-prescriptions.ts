@@ -7,20 +7,15 @@ export interface PatientPrescriptionsRouterConfig {
   doctorRepository: DoctorRepository;
 }
 
-// ponytail: patient_id comes from a query param until an auth middleware exists
-// to derive it from the JWT (req.user.sub) instead.
+// patient_id is derived from the authenticated JWT (req.user.sub) — this
+// router must always be mounted behind requireAuth + requireRole('PATIENT').
 export function patientPrescriptionsRouter(config: PatientPrescriptionsRouterConfig): Router {
   const router = Router();
 
   // PAT-07: list only finalized prescriptions — a prescription has no separate
   // release step, finalize is what makes it visible to the patient.
   router.get('/', async (req, res) => {
-    const patientId = req.query.patient_id;
-    if (typeof patientId !== 'string') {
-      res.status(400).json({ code: 'INVALID_INPUT', message: 'patient_id é obrigatório.' });
-      return;
-    }
-
+    const patientId = req.user!.sub;
     const prescriptions = await config.prescriptionRepository.listFinalizedByPatientId(patientId);
     const items = await Promise.all(
       prescriptions.map(async (prescription) => {
@@ -39,11 +34,7 @@ export function patientPrescriptionsRouter(config: PatientPrescriptionsRouterCon
 
   // PAT-07: view one finalized prescription, read-only.
   router.get('/:prescriptionId', async (req, res) => {
-    const patientId = req.query.patient_id;
-    if (typeof patientId !== 'string') {
-      res.status(400).json({ code: 'INVALID_INPUT', message: 'patient_id é obrigatório.' });
-      return;
-    }
+    const patientId = req.user!.sub;
 
     const record = await config.prescriptionRepository.findById(req.params.prescriptionId);
     if (!record || record.patientId !== patientId || record.status !== 'FINALIZED') {

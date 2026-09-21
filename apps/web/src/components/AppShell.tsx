@@ -48,6 +48,16 @@ export function AppShell() {
               Fila de atendimento
             </NavLink>
           )}
+          {user?.role === 'PATIENT' && (
+            <>
+              <NavLink to="/patient/appointments" className={NAV_LINK_CLASS}>
+                Minhas consultas
+              </NavLink>
+              <NavLink to="/patient/records" className={NAV_LINK_CLASS}>
+                Meus documentos
+              </NavLink>
+            </>
+          )}
         </nav>
       </aside>
 
