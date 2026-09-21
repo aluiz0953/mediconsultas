@@ -103,7 +103,13 @@ app.use(
   '/api/v1/doctor',
   requireAuth(JWT_SECRET),
   requireRole('DOCTOR'),
-  prescriptionsRouter({ appointmentRepository, prescriptionRepository, auditEventRepository }),
+  prescriptionsRouter({
+    appointmentRepository,
+    prescriptionRepository,
+    auditEventRepository,
+    doctorRepository,
+    fieldEncryptionKey: FIELD_ENCRYPTION_KEY,
+  }),
 );
 
 app.use(
@@ -116,7 +122,7 @@ app.use(
   '/api/v1/patient/prescriptions',
   requireAuth(JWT_SECRET),
   requireRole('PATIENT'),
-  patientPrescriptionsRouter({ prescriptionRepository, doctorRepository }),
+  patientPrescriptionsRouter({ prescriptionRepository, doctorRepository, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }),
 );
 app.use(
   '/api/v1/patient/appointments',

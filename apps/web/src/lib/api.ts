@@ -34,3 +34,20 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   if (response.status === 204) return undefined as T
   return response.json() as Promise<T>
 }
+
+// RF-09: PDF endpoints need the same Bearer auth as apiFetch, so a plain
+// <a href> won't work — fetch as a blob and open that instead.
+export async function openPdf(path: string): Promise<void> {
+  const token = getToken()
+  const response = await fetch(path, {
+    headers: token ? { authorization: `Bearer ${token}` } : {},
+  })
+
+  if (!response.ok) {
+    throw new ApiError(response.status, 'Falha ao gerar o PDF.')
+  }
+
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  window.open(url, '_blank')
+}

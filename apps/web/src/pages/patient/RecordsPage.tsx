@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { apiFetch, ApiError } from '../../lib/api'
+import { apiFetch, ApiError, openPdf } from '../../lib/api'
 
 interface ClinicalRecordSummary {
   id: string
@@ -158,7 +158,16 @@ export function RecordsPage() {
             <li key={prescription.id} className="rounded-lg border border-slate-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
               <div className="flex items-center justify-between">
                 <p className="font-medium text-slate-900 dark:text-white">{prescription.doctor?.display_name ?? 'Médico'}</p>
-                <p className="text-xs text-slate-400 dark:text-slate-500">Emitida em {formatDate(prescription.issued_at)}</p>
+                <div className="flex items-center gap-3">
+                  <p className="text-xs text-slate-400 dark:text-slate-500">Emitida em {formatDate(prescription.issued_at)}</p>
+                  <button
+                    type="button"
+                    onClick={() => openPdf(`/api/v1/patient/prescriptions/${prescription.id}/pdf`)}
+                    className="rounded-md border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"
+                  >
+                    Baixar PDF
+                  </button>
+                </div>
               </div>
               {prescription.no_medication_needed ? (
                 <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Nenhuma medicação necessária.</p>

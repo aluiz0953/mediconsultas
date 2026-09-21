@@ -90,7 +90,13 @@ function buildApp(): Express {
     '/api/v1/doctor',
     requireAuth(JWT_SECRET),
     requireRole('DOCTOR'),
-    prescriptionsRouter({ appointmentRepository, prescriptionRepository, auditEventRepository }),
+    prescriptionsRouter({
+      appointmentRepository,
+      prescriptionRepository,
+      auditEventRepository,
+      doctorRepository,
+      fieldEncryptionKey: FIELD_ENCRYPTION_KEY,
+    }),
   );
   return app;
 }

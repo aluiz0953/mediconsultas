@@ -67,7 +67,13 @@ function buildApp(): Express {
     '/api/v1/doctor',
     requireAuth(JWT_SECRET),
     requireRole('DOCTOR'),
-    prescriptionsRouter({ appointmentRepository, prescriptionRepository, auditEventRepository }),
+    prescriptionsRouter({
+      appointmentRepository,
+      prescriptionRepository,
+      auditEventRepository,
+      doctorRepository,
+      fieldEncryptionKey: FIELD_ENCRYPTION_KEY,
+    }),
   );
   return app;
 }
@@ -198,6 +204,68 @@ test('finalizes a prescription with items', async () => {
     const body = await json(response);
     assert.equal(body.status, 'FINALIZED');
     assert.ok(body.issued_at);
+  } finally {
+    server.close();
+  }
+});
+
+test('downloads the PDF of a finalized prescription (RF-09)', async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const { doctorId, appointmentId } = await seedInProgressAppointment(base);
+    const createResponse = await post(
+      `${base}/doctor/appointments/${appointmentId}/prescriptions`,
+      { items: [{ medication_name: 'Losartana', dosage: '50mg' }] },
+      doctorAuthHeaders(doctorId),
+    );
+    const { id: prescriptionId } = await json(createResponse);
+    await post(`${base}/doctor/prescriptions/${prescriptionId}/finalize`, {}, doctorAuthHeaders(doctorId));
+
+    const response = await get(`${base}/doctor/prescriptions/${prescriptionId}/pdf`, doctorAuthHeaders(doctorId));
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('content-type'), 'application/pdf');
+    const buffer = await response.arrayBuffer();
+    assert.ok(buffer.byteLength > 0);
+  } finally {
+    server.close();
+  }
+});
+
+test('rejects downloading the PDF of a prescription still in draft', async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const { doctorId, appointmentId } = await seedInProgressAppointment(base);
+    const createResponse = await post(
+      `${base}/doctor/appointments/${appointmentId}/prescriptions`,
+      { items: [{ medication_name: 'Losartana' }] },
+      doctorAuthHeaders(doctorId),
+    );
+    const { id: prescriptionId } = await json(createResponse);
+
+    const response = await get(`${base}/doctor/prescriptions/${prescriptionId}/pdf`, doctorAuthHeaders(doctorId));
+    assert.equal(response.status, 404);
+  } finally {
+    server.close();
+  }
+});
+
+test('rejects downloading the PDF from a doctor not linked to the prescription', async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const { doctorId, appointmentId } = await seedInProgressAppointment(base);
+    const createResponse = await post(
+      `${base}/doctor/appointments/${appointmentId}/prescriptions`,
+      { items: [{ medication_name: 'Losartana' }] },
+      doctorAuthHeaders(doctorId),
+    );
+    const { id: prescriptionId } = await json(createResponse);
+    await post(`${base}/doctor/prescriptions/${prescriptionId}/finalize`, {}, doctorAuthHeaders(doctorId));
+
+    const response = await get(
+      `${base}/doctor/prescriptions/${prescriptionId}/pdf`,
+      doctorAuthHeaders('00000000-0000-0000-0000-000000000000'),
+    );
+    assert.equal(response.status, 403);
   } finally {
     server.close();
   }
