@@ -1,6 +1,5 @@
 import { type FormEvent, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ThemeToggle } from '../components/ThemeToggle'
 
 interface ApiError {
   code: string
@@ -66,10 +65,6 @@ export function RegisterPage() {
 
   return (
     <div className="relative flex min-h-svh items-center justify-center px-4 py-10">
-      <div className="absolute right-4 top-4">
-        <ThemeToggle />
-      </div>
-
       <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-8 shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <h1 className="text-xl font-semibold text-slate-900 dark:text-white">Criar conta de paciente</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Leva menos de um minuto.</p>

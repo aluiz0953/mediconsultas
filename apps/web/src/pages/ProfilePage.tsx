@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { apiFetch, ApiError } from '../lib/api'
 import { getCurrentUser } from '../lib/auth'
+import { ThemeToggle } from '../components/ThemeToggle'
 
 interface RoleProfile {
   full_name: string
@@ -33,6 +34,14 @@ export function ProfilePage() {
 
       {path && <RoleProfileSection path={path} />}
       <AccountSection />
+
+      <section className="rounded-lg border border-slate-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+        <h2 className="font-medium text-slate-900 dark:text-white">Preferências</h2>
+        <div className="mt-4 flex items-center justify-between">
+          <p className="text-sm text-slate-600 dark:text-slate-300">Tema da interface</p>
+          <ThemeToggle />
+        </div>
+      </section>
     </div>
   )
 }

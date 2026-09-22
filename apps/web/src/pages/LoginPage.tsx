@@ -1,7 +1,6 @@
 import { type FormEvent, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { setToken } from '../lib/auth'
-import { ThemeToggle } from '../components/ThemeToggle'
 
 interface LoginResponse {
   access_token: string
@@ -55,10 +54,6 @@ export function LoginPage() {
 
   return (
     <div className="relative flex min-h-svh items-center justify-center px-4">
-      <div className="absolute right-4 top-4">
-        <ThemeToggle />
-      </div>
-
       <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <h1 className="text-xl font-semibold text-slate-900 dark:text-white">Entrar</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">

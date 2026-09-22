@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { ProtectedRoute, PublicOnlyRoute, RequireRole } from './routes/guards'
@@ -7,6 +7,7 @@ import { RegisterPage } from './pages/RegisterPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { HomePage } from './pages/HomePage'
+import { applyTheme, getStoredTheme } from './lib/theme'
 
 // Role-scoped pages are lazy: a given user only ever loads the 1-3 chunks
 // their own role needs, instead of every role's code landing in one bundle.
@@ -31,6 +32,12 @@ function PageFallback() {
 }
 
 function App() {
+  // The toggle itself only lives on the profile page, but the chosen theme
+  // (light by default — see lib/theme.ts) must still apply on every route.
+  useEffect(() => {
+    applyTheme(getStoredTheme())
+  }, [])
+
   return (
     <BrowserRouter>
       <Routes>

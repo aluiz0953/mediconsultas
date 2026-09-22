@@ -1,5 +1,4 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { ThemeToggle } from './ThemeToggle'
 import { clearToken, getCurrentUser, type Role } from '../lib/auth'
 
 const NAV_LINK_CLASS =
@@ -74,7 +73,6 @@ export function AppShell() {
 
       <div className="flex flex-1 flex-col">
         <header className="flex items-center justify-end gap-3 border-b border-slate-200 p-4 dark:border-gray-800">
-          <ThemeToggle />
           <button
             type="button"
             onClick={handleLogout}
