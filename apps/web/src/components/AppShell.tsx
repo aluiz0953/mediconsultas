@@ -49,9 +49,14 @@ export function AppShell() {
             </>
           )}
           {(user?.role === 'SECRETARY' || user?.role === 'ADMIN') && (
-            <NavLink to="/secretary/schedule" className={NAV_LINK_CLASS}>
-              Agenda de consultas
-            </NavLink>
+            <>
+              <NavLink to="/secretary/schedule" className={NAV_LINK_CLASS}>
+                Agenda de consultas
+              </NavLink>
+              <NavLink to="/secretary/clinic-settings" className={NAV_LINK_CLASS}>
+                Configurações da clínica
+              </NavLink>
+            </>
           )}
           {user?.role === 'DOCTOR' && (
             <NavLink to="/doctor/queue" className={NAV_LINK_CLASS}>

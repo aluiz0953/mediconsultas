@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import type { PrescriptionRepository } from '../repositories/prescription-repository.js';
 import type { DoctorRepository } from '../repositories/doctor-repository.js';
+import type { ClinicSettingsRepository } from '../repositories/clinic-settings-repository.js';
 import { decryptField } from '../crypto/field-encryption.js';
 import { renderPrescriptionPdf } from '../pdf/prescription-pdf.js';
 
 export interface PatientPrescriptionsRouterConfig {
   prescriptionRepository: PrescriptionRepository;
   doctorRepository: DoctorRepository;
+  clinicSettingsRepository: ClinicSettingsRepository;
   fieldEncryptionKey: string;
 }
 
@@ -75,7 +77,10 @@ export function patientPrescriptionsRouter(config: PatientPrescriptionsRouterCon
       return;
     }
 
-    const doctor = await config.doctorRepository.findById(record.doctorId);
+    const [doctor, clinicSettings] = await Promise.all([
+      config.doctorRepository.findById(record.doctorId),
+      config.clinicSettingsRepository.get(),
+    ]);
     const licenseNumber = doctor ? decryptField(doctor.licenseNumberCiphertext, config.fieldEncryptionKey) : 'N/D';
 
     renderPrescriptionPdf(res, {
@@ -85,6 +90,7 @@ export function patientPrescriptionsRouter(config: PatientPrescriptionsRouterCon
       noMedicationNeeded: record.noMedicationNeeded,
       doctorName: doctor?.fullName ?? 'Médico(a)',
       doctorLicense: `CRM ${licenseNumber}/${doctor?.licenseState ?? 'N/D'}`,
+      logoBuffer: clinicSettings.logoBase64 ? Buffer.from(clinicSettings.logoBase64, 'base64') : null,
     });
   });
 

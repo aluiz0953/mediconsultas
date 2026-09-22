@@ -2,11 +2,14 @@ import { Router } from 'express';
 import type { AppointmentRepository } from '../repositories/appointment-repository.js';
 import type { PatientRepository } from '../repositories/patient-repository.js';
 import type { DoctorRepository } from '../repositories/doctor-repository.js';
+import type { DoctorScheduleBlockRepository } from '../repositories/doctor-schedule-block-repository.js';
+import { publishAppointmentChange } from '../realtime/appointment-events.js';
 
 export interface SecretaryAppointmentsRouterConfig {
   appointmentRepository: AppointmentRepository;
   patientRepository: PatientRepository;
   doctorRepository: DoctorRepository;
+  blockRepository: DoctorScheduleBlockRepository;
 }
 
 export function secretaryAppointmentsRouter(config: SecretaryAppointmentsRouterConfig): Router {
@@ -111,6 +114,13 @@ export function secretaryAppointmentsRouter(config: SecretaryAppointmentsRouterC
       return;
     }
 
+    // Secretary-blocked interval (holiday, day off, emergency) — see secretary-schedule-blocks.ts.
+    const blocked = await config.blockRepository.hasConflict(doctor_id, startsAt, endsAt);
+    if (blocked) {
+      res.status(409).json({ code: 'DOCTOR_TIME_BLOCKED', message: 'Este horário está bloqueado na agenda do médico.' });
+      return;
+    }
+
     const appointment = await config.appointmentRepository.create({
       patientId: patient_id,
       doctorId: doctor_id,
@@ -120,6 +130,7 @@ export function secretaryAppointmentsRouter(config: SecretaryAppointmentsRouterC
       administrativeNote: typeof administrative_note === 'string' ? administrative_note : null,
       createdBy: req.user?.sub ?? null,
     });
+    publishAppointmentChange({ appointmentId: appointment.id, doctorId: appointment.doctorId, status: appointment.status });
 
     res.status(201).json({
       id: appointment.id,
@@ -148,6 +159,7 @@ export function secretaryAppointmentsRouter(config: SecretaryAppointmentsRouterC
     }
 
     const updated = await config.appointmentRepository.updateStatus(appointment.id, 'CONFIRMED');
+    publishAppointmentChange({ appointmentId: updated!.id, doctorId: updated!.doctorId, status: updated!.status });
     res.json({ id: updated!.id, status: updated!.status });
   });
 
@@ -167,6 +179,7 @@ export function secretaryAppointmentsRouter(config: SecretaryAppointmentsRouterC
     }
 
     const updated = await config.appointmentRepository.updateStatus(appointment.id, 'CANCELLED');
+    publishAppointmentChange({ appointmentId: updated!.id, doctorId: updated!.doctorId, status: updated!.status });
     res.json({ id: updated!.id, status: updated!.status });
   });
 

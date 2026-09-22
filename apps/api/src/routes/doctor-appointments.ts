@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { AppointmentRepository } from '../repositories/appointment-repository.js';
 import type { PatientRepository } from '../repositories/patient-repository.js';
+import { publishAppointmentChange } from '../realtime/appointment-events.js';
 
 export interface DoctorAppointmentsRouterConfig {
   appointmentRepository: AppointmentRepository;
@@ -58,6 +59,7 @@ export function doctorAppointmentsRouter(config: DoctorAppointmentsRouterConfig)
     }
 
     const updated = await config.appointmentRepository.updateStatus(appointment.id, 'IN_PROGRESS');
+    publishAppointmentChange({ appointmentId: updated!.id, doctorId: updated!.doctorId, status: updated!.status });
     res.json({ id: updated!.id, status: updated!.status });
   });
 

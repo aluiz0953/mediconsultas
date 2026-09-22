@@ -13,6 +13,8 @@ import { InMemoryDoctorRepository } from '../repositories/doctor-repository.js';
 import { InMemoryAppointmentRepository } from '../repositories/appointment-repository.js';
 import { InMemoryClinicalRecordRepository } from '../repositories/clinical-record-repository.js';
 import { InMemoryAuditEventRepository } from '../repositories/audit-event-repository.js';
+import { InMemoryDoctorScheduleBlockRepository } from '../repositories/doctor-schedule-block-repository.js';
+import { InMemoryClinicSettingsRepository } from '../repositories/clinic-settings-repository.js';
 import { requireAuth, requireRole } from '../auth/middleware.js';
 import { signSession } from '../auth/token.js';
 
@@ -52,11 +54,13 @@ function buildApp(): Express {
   const appointmentRepository = new InMemoryAppointmentRepository();
   const clinicalRecordRepository = new InMemoryClinicalRecordRepository();
   const auditEventRepository = new InMemoryAuditEventRepository();
+  const blockRepository = new InMemoryDoctorScheduleBlockRepository();
+  const clinicSettingsRepository = new InMemoryClinicSettingsRepository();
 
   app.use('/api/v1/patients', patientsRouter({ repository: patientRepository, cpfHmacSecret: CPF_HMAC_SECRET, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }));
   app.use('/api/v1/doctors', doctorsRouter({ repository: doctorRepository, licenseHmacSecret: LICENSE_HMAC_SECRET, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }));
   app.use('/api/v1/admin/doctors', adminDoctorsRouter({ repository: doctorRepository, auditEventRepository }));
-  app.use('/api/v1/secretary/appointments', secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository }));
+  app.use('/api/v1/secretary/appointments', secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository, blockRepository }));
   app.use(
     '/api/v1/doctor/appointments',
     requireAuth(JWT_SECRET),
@@ -67,7 +71,15 @@ function buildApp(): Express {
     '/api/v1/doctor',
     requireAuth(JWT_SECRET),
     requireRole('DOCTOR'),
-    clinicalRecordsRouter({ appointmentRepository, clinicalRecordRepository, auditEventRepository, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }),
+    clinicalRecordsRouter({
+      appointmentRepository,
+      clinicalRecordRepository,
+      auditEventRepository,
+      doctorRepository,
+      patientRepository,
+      clinicSettingsRepository,
+      fieldEncryptionKey: FIELD_ENCRYPTION_KEY,
+    }),
   );
   return app;
 }
@@ -263,6 +275,32 @@ test('rejects finalizing a record twice', async () => {
     assert.equal(response.status, 409);
     const body = await json(response);
     assert.equal(body.code, 'INVALID_STATUS_TRANSITION');
+  } finally {
+    server.close();
+  }
+});
+
+test('RF-08: generates a PDF for a finalized record, for the issuing doctor only', async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const { doctorId, appointmentId } = await seedInProgressAppointment(base);
+    const createResponse = await post(`${base}/doctor/appointments/${appointmentId}/clinical-records`, {}, doctorAuthHeaders(doctorId));
+    const { id: recordId } = await json(createResponse);
+    await patch(
+      `${base}/doctor/clinical-records/${recordId}`,
+      { assessment: 'Hipertensão leve', instructions: 'Reduzir sal' },
+      doctorAuthHeaders(doctorId),
+    );
+    await post(`${base}/doctor/clinical-records/${recordId}/finalize`, {}, doctorAuthHeaders(doctorId));
+
+    const response = await get(`${base}/doctor/clinical-records/${recordId}/pdf`, doctorAuthHeaders(doctorId));
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('content-type'), 'application/pdf');
+    const buffer = Buffer.from(await response.arrayBuffer());
+    assert.equal(buffer.subarray(0, 4).toString(), '%PDF');
+
+    const otherDoctorResponse = await get(`${base}/doctor/clinical-records/${recordId}/pdf`, doctorAuthHeaders('someone-else'));
+    assert.equal(otherDoctorResponse.status, 403);
   } finally {
     server.close();
   }

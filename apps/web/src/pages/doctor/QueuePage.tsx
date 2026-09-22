@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch, ApiError } from '../../lib/api'
+import { getToken } from '../../lib/auth'
 
 interface QueueAppointment {
   id: string
@@ -48,6 +49,17 @@ export function QueuePage() {
 
   useEffect(() => {
     load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date])
+
+  // Real-time: the secretary confirming/cancelling an appointment updates
+  // this queue instantly, without the doctor needing to refresh manually.
+  useEffect(() => {
+    const token = getToken()
+    if (!token) return
+    const source = new EventSource(`/api/v1/appointments/events?token=${encodeURIComponent(token)}`)
+    source.onmessage = () => load()
+    return () => source.close()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date])
 

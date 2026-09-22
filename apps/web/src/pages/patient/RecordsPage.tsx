@@ -148,7 +148,16 @@ export function RecordsPage() {
                   {record.doctor?.display_name ?? 'Médico'}
                   {isRecent(record.released_at) && <NewBadge />}
                 </p>
-                <p className="text-xs text-slate-400 dark:text-slate-500">Liberado em {formatDate(record.released_at)}</p>
+                <div className="flex items-center gap-3">
+                  <p className="text-xs text-slate-400 dark:text-slate-500">Liberado em {formatDate(record.released_at)}</p>
+                  <button
+                    type="button"
+                    onClick={() => openPdf(`/api/v1/patient/clinical-records/${record.id}/pdf`)}
+                    className="rounded-md border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"
+                  >
+                    Baixar PDF
+                  </button>
+                </div>
               </div>
               <dl className="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-300">
                 {record.content.assessment && (

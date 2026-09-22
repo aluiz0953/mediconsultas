@@ -18,6 +18,9 @@ const PendingDoctorsPage = lazy(() =>
 const AccountsPage = lazy(() => import('./pages/admin/AccountsPage').then((m) => ({ default: m.AccountsPage })))
 const AuditLogPage = lazy(() => import('./pages/admin/AuditLogPage').then((m) => ({ default: m.AuditLogPage })))
 const SchedulePage = lazy(() => import('./pages/secretary/SchedulePage').then((m) => ({ default: m.SchedulePage })))
+const ClinicSettingsPage = lazy(() =>
+  import('./pages/secretary/ClinicSettingsPage').then((m) => ({ default: m.ClinicSettingsPage })),
+)
 const QueuePage = lazy(() => import('./pages/doctor/QueuePage').then((m) => ({ default: m.QueuePage })))
 const ConsultationPage = lazy(() =>
   import('./pages/doctor/ConsultationPage').then((m) => ({ default: m.ConsultationPage })),
@@ -119,6 +122,14 @@ function App() {
                 element={
                   <Suspense fallback={<PageFallback />}>
                     <SchedulePage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/secretary/clinic-settings"
+                element={
+                  <Suspense fallback={<PageFallback />}>
+                    <ClinicSettingsPage />
                   </Suspense>
                 }
               />

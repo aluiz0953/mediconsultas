@@ -16,6 +16,8 @@ import { InMemoryAppointmentRepository } from '../repositories/appointment-repos
 import { InMemoryClinicalRecordRepository } from '../repositories/clinical-record-repository.js';
 import { InMemoryPrescriptionRepository } from '../repositories/prescription-repository.js';
 import { InMemoryAuditEventRepository } from '../repositories/audit-event-repository.js';
+import { InMemoryDoctorScheduleBlockRepository } from '../repositories/doctor-schedule-block-repository.js';
+import { InMemoryClinicSettingsRepository } from '../repositories/clinic-settings-repository.js';
 import { requireAuth, requireRole } from '../auth/middleware.js';
 import { signSession } from '../auth/token.js';
 
@@ -58,6 +60,8 @@ function buildApp(): Express {
   const clinicalRecordRepository = new InMemoryClinicalRecordRepository();
   const prescriptionRepository = new InMemoryPrescriptionRepository();
   const auditEventRepository = new InMemoryAuditEventRepository();
+  const blockRepository = new InMemoryDoctorScheduleBlockRepository();
+  const clinicSettingsRepository = new InMemoryClinicSettingsRepository();
 
   app.use('/api/v1/patients', patientsRouter({ repository: patientRepository, cpfHmacSecret: CPF_HMAC_SECRET, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }));
   app.use('/api/v1/doctors', doctorsRouter({ repository: doctorRepository, licenseHmacSecret: LICENSE_HMAC_SECRET, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }));
@@ -73,7 +77,7 @@ function buildApp(): Express {
     requireRole('ADMIN'),
     adminAuditRouter({ repository: auditEventRepository }),
   );
-  app.use('/api/v1/secretary/appointments', secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository }));
+  app.use('/api/v1/secretary/appointments', secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository, blockRepository }));
   app.use(
     '/api/v1/doctor/appointments',
     requireAuth(JWT_SECRET),
@@ -84,7 +88,15 @@ function buildApp(): Express {
     '/api/v1/doctor',
     requireAuth(JWT_SECRET),
     requireRole('DOCTOR'),
-    clinicalRecordsRouter({ appointmentRepository, clinicalRecordRepository, auditEventRepository, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }),
+    clinicalRecordsRouter({
+      appointmentRepository,
+      clinicalRecordRepository,
+      auditEventRepository,
+      doctorRepository,
+      patientRepository,
+      clinicSettingsRepository,
+      fieldEncryptionKey: FIELD_ENCRYPTION_KEY,
+    }),
   );
   app.use(
     '/api/v1/doctor',
@@ -95,6 +107,7 @@ function buildApp(): Express {
       prescriptionRepository,
       auditEventRepository,
       doctorRepository,
+      clinicSettingsRepository,
       fieldEncryptionKey: FIELD_ENCRYPTION_KEY,
     }),
   );

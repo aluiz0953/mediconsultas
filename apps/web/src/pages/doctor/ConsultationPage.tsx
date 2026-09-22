@@ -231,7 +231,18 @@ export function ConsultationPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Registro clínico</h2>
           {record && (
-            <span className="text-xs text-slate-500 dark:text-slate-400">{record.status === 'DRAFT' ? 'Rascunho' : 'Finalizado'}</span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 dark:text-slate-400">{record.status === 'DRAFT' ? 'Rascunho' : 'Finalizado'}</span>
+              {record.status === 'FINALIZED' && (
+                <button
+                  type="button"
+                  onClick={() => openPdf(`/api/v1/doctor/clinical-records/${record.id}/pdf`)}
+                  className="rounded-md border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"
+                >
+                  Baixar PDF
+                </button>
+              )}
+            </div>
           )}
         </div>
 

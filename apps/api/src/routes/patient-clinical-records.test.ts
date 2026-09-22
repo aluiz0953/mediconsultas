@@ -14,6 +14,8 @@ import { InMemoryDoctorRepository } from '../repositories/doctor-repository.js';
 import { InMemoryAppointmentRepository } from '../repositories/appointment-repository.js';
 import { InMemoryClinicalRecordRepository } from '../repositories/clinical-record-repository.js';
 import { InMemoryAuditEventRepository } from '../repositories/audit-event-repository.js';
+import { InMemoryDoctorScheduleBlockRepository } from '../repositories/doctor-schedule-block-repository.js';
+import { InMemoryClinicSettingsRepository } from '../repositories/clinic-settings-repository.js';
 import { requireAuth, requireRole } from '../auth/middleware.js';
 import { signSession } from '../auth/token.js';
 
@@ -57,11 +59,13 @@ function buildApp(): Express {
   const appointmentRepository = new InMemoryAppointmentRepository();
   const clinicalRecordRepository = new InMemoryClinicalRecordRepository();
   const auditEventRepository = new InMemoryAuditEventRepository();
+  const blockRepository = new InMemoryDoctorScheduleBlockRepository();
+  const clinicSettingsRepository = new InMemoryClinicSettingsRepository();
 
   app.use('/api/v1/patients', patientsRouter({ repository: patientRepository, cpfHmacSecret: CPF_HMAC_SECRET, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }));
   app.use('/api/v1/doctors', doctorsRouter({ repository: doctorRepository, licenseHmacSecret: LICENSE_HMAC_SECRET, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }));
   app.use('/api/v1/admin/doctors', adminDoctorsRouter({ repository: doctorRepository, auditEventRepository }));
-  app.use('/api/v1/secretary/appointments', secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository }));
+  app.use('/api/v1/secretary/appointments', secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository, blockRepository }));
   app.use(
     '/api/v1/doctor/appointments',
     requireAuth(JWT_SECRET),
@@ -72,13 +76,21 @@ function buildApp(): Express {
     '/api/v1/doctor',
     requireAuth(JWT_SECRET),
     requireRole('DOCTOR'),
-    clinicalRecordsRouter({ appointmentRepository, clinicalRecordRepository, auditEventRepository, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }),
+    clinicalRecordsRouter({
+      appointmentRepository,
+      clinicalRecordRepository,
+      auditEventRepository,
+      doctorRepository,
+      patientRepository,
+      clinicSettingsRepository,
+      fieldEncryptionKey: FIELD_ENCRYPTION_KEY,
+    }),
   );
   app.use(
     '/api/v1/patient/clinical-records',
     requireAuth(JWT_SECRET),
     requireRole('PATIENT'),
-    patientClinicalRecordsRouter({ clinicalRecordRepository, doctorRepository, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }),
+    patientClinicalRecordsRouter({ clinicalRecordRepository, doctorRepository, patientRepository, clinicSettingsRepository, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }),
   );
   return app;
 }
@@ -204,6 +216,38 @@ test('rejects requests without a valid patient token', async () => {
 
     const wrongRole = await get(`${base}/patient/clinical-records/${recordId}`, doctorAuthHeaders('someone'));
     assert.equal(wrongRole.status, 403);
+  } finally {
+    server.close();
+  }
+});
+
+test('generates a PDF for a released record, for the patient it belongs to', async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const { patientId, recordId } = await seedFinalizedRecord(base, true);
+
+    const response = await get(`${base}/patient/clinical-records/${recordId}/pdf`, patientAuthHeaders(patientId));
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('content-type'), 'application/pdf');
+    const buffer = Buffer.from(await response.arrayBuffer());
+    assert.equal(buffer.subarray(0, 4).toString(), '%PDF');
+
+    const wrongPatient = await get(
+      `${base}/patient/clinical-records/${recordId}/pdf`,
+      patientAuthHeaders('00000000-0000-0000-0000-000000000000'),
+    );
+    assert.equal(wrongPatient.status, 404);
+  } finally {
+    server.close();
+  }
+});
+
+test('refuses a PDF for a record that was not released to the patient', async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const { patientId, recordId } = await seedFinalizedRecord(base, false);
+    const response = await get(`${base}/patient/clinical-records/${recordId}/pdf`, patientAuthHeaders(patientId));
+    assert.equal(response.status, 404);
   } finally {
     server.close();
   }

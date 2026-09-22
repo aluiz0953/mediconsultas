@@ -10,6 +10,7 @@ import { InMemoryPatientRepository } from '../repositories/patient-repository.js
 import { InMemoryDoctorRepository } from '../repositories/doctor-repository.js';
 import { InMemoryAppointmentRepository } from '../repositories/appointment-repository.js';
 import { InMemoryAuditEventRepository } from '../repositories/audit-event-repository.js';
+import { InMemoryDoctorScheduleBlockRepository } from '../repositories/doctor-schedule-block-repository.js';
 import { requireAuth, requireRole } from '../auth/middleware.js';
 import { signSession } from '../auth/token.js';
 
@@ -46,6 +47,7 @@ function buildApp(): Express {
   const doctorRepository = new InMemoryDoctorRepository();
   const appointmentRepository = new InMemoryAppointmentRepository();
   const auditEventRepository = new InMemoryAuditEventRepository();
+  const blockRepository = new InMemoryDoctorScheduleBlockRepository();
 
   app.use('/api/v1/patients', patientsRouter({ repository: patientRepository, cpfHmacSecret: CPF_HMAC_SECRET, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }));
   app.use('/api/v1/doctors', doctorsRouter({ repository: doctorRepository, licenseHmacSecret: LICENSE_HMAC_SECRET, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }));
@@ -54,7 +56,7 @@ function buildApp(): Express {
     '/api/v1/secretary/appointments',
     requireAuth(JWT_SECRET),
     requireRole('SECRETARY', 'ADMIN'),
-    secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository }),
+    secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository, blockRepository }),
   );
   return app;
 }

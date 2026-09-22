@@ -3,6 +3,7 @@ import type { AppointmentRepository } from '../repositories/appointment-reposito
 import type { PrescriptionItem, PrescriptionRepository } from '../repositories/prescription-repository.js';
 import type { AuditEventRepository } from '../repositories/audit-event-repository.js';
 import type { DoctorRepository } from '../repositories/doctor-repository.js';
+import type { ClinicSettingsRepository } from '../repositories/clinic-settings-repository.js';
 import { decryptField } from '../crypto/field-encryption.js';
 import { renderPrescriptionPdf } from '../pdf/prescription-pdf.js';
 
@@ -11,6 +12,7 @@ export interface PrescriptionsRouterConfig {
   prescriptionRepository: PrescriptionRepository;
   auditEventRepository: AuditEventRepository;
   doctorRepository: DoctorRepository;
+  clinicSettingsRepository: ClinicSettingsRepository;
   fieldEncryptionKey: string;
 }
 
@@ -240,7 +242,10 @@ export function prescriptionsRouter(config: PrescriptionsRouterConfig): Router {
       return;
     }
 
-    const doctor = await config.doctorRepository.findById(record.doctorId);
+    const [doctor, clinicSettings] = await Promise.all([
+      config.doctorRepository.findById(record.doctorId),
+      config.clinicSettingsRepository.get(),
+    ]);
     const licenseNumber = doctor ? decryptField(doctor.licenseNumberCiphertext, config.fieldEncryptionKey) : 'N/D';
 
     renderPrescriptionPdf(res, {
@@ -250,6 +255,7 @@ export function prescriptionsRouter(config: PrescriptionsRouterConfig): Router {
       noMedicationNeeded: record.noMedicationNeeded,
       doctorName: doctor?.fullName ?? 'Médico(a)',
       doctorLicense: `CRM ${licenseNumber}/${doctor?.licenseState ?? 'N/D'}`,
+      logoBuffer: clinicSettings.logoBase64 ? Buffer.from(clinicSettings.logoBase64, 'base64') : null,
     });
   });
 

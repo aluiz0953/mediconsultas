@@ -2,7 +2,11 @@ import { Router } from 'express';
 import type { AppointmentRepository } from '../repositories/appointment-repository.js';
 import type { ClinicalRecordRepository } from '../repositories/clinical-record-repository.js';
 import type { AuditEventRepository } from '../repositories/audit-event-repository.js';
+import type { DoctorRepository } from '../repositories/doctor-repository.js';
+import type { PatientRepository } from '../repositories/patient-repository.js';
+import type { ClinicSettingsRepository } from '../repositories/clinic-settings-repository.js';
 import { encryptField, decryptField } from '../crypto/field-encryption.js';
+import { renderClinicalRecordPdf } from '../pdf/clinical-record-pdf.js';
 
 export interface ClinicalRecordContent {
   chief_complaint?: string;
@@ -39,6 +43,9 @@ export interface ClinicalRecordsRouterConfig {
   appointmentRepository: AppointmentRepository;
   clinicalRecordRepository: ClinicalRecordRepository;
   auditEventRepository: AuditEventRepository;
+  doctorRepository: DoctorRepository;
+  patientRepository: PatientRepository;
+  clinicSettingsRepository: ClinicSettingsRepository;
   fieldEncryptionKey: string;
 }
 
@@ -204,6 +211,38 @@ export function clinicalRecordsRouter(config: ClinicalRecordsRouterConfig): Rout
       status: updated!.status,
       released_at: updated!.releasedAt?.toISOString() ?? null,
       content: { available: true },
+    });
+  });
+
+  // RF-08: printable PDF of a finalized record, for the issuing doctor.
+  router.get('/clinical-records/:recordId/pdf', async (req, res) => {
+    const record = await config.clinicalRecordRepository.findById(req.params.recordId);
+    if (!record || record.status !== 'FINALIZED') {
+      res.status(404).json({ code: 'CLINICAL_RECORD_NOT_FOUND', message: 'Registro não encontrado ou não finalizado.' });
+      return;
+    }
+    if (record.doctorId !== req.user!.sub) {
+      res.status(403).json({ code: 'RESOURCE_ACCESS_DENIED', message: 'Você não tem permissão para acessar este recurso.' });
+      return;
+    }
+
+    const [doctor, patient, clinicSettings] = await Promise.all([
+      config.doctorRepository.findById(record.doctorId),
+      config.patientRepository.findById(record.patientId),
+      config.clinicSettingsRepository.get(),
+    ]);
+    const content = JSON.parse(decryptField(record.contentCiphertext, config.fieldEncryptionKey)) as ClinicalRecordContent;
+    const licenseNumber = doctor ? decryptField(doctor.licenseNumberCiphertext, config.fieldEncryptionKey) : 'N/D';
+
+    renderClinicalRecordPdf(res, {
+      recordId: record.id,
+      version: record.version,
+      finalizedAt: record.finalizedAt,
+      patientName: patient?.fullName ?? 'Paciente',
+      doctorName: doctor?.fullName ?? 'Médico(a)',
+      doctorLicense: `CRM ${licenseNumber}/${doctor?.licenseState ?? 'N/D'}`,
+      content,
+      logoBuffer: clinicSettings.logoBase64 ? Buffer.from(clinicSettings.logoBase64, 'base64') : null,
     });
   });
 

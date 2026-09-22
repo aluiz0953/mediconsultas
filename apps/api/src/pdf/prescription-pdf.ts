@@ -1,6 +1,7 @@
 import PDFDocument from 'pdfkit';
 import type { Response } from 'express';
 import type { PrescriptionItem } from '../repositories/prescription-repository.js';
+import { renderLetterhead } from './letterhead.js';
 
 export interface PrescriptionPdfData {
   prescriptionId: string;
@@ -9,6 +10,7 @@ export interface PrescriptionPdfData {
   noMedicationNeeded: boolean;
   doctorName: string;
   doctorLicense: string;
+  logoBuffer: Buffer | null;
 }
 
 // RF-09: same PDF shape for both the doctor's and the patient's download endpoints.
@@ -19,12 +21,7 @@ export function renderPrescriptionPdf(res: Response, data: PrescriptionPdfData):
   const doc = new PDFDocument({ size: 'A4', margin: 50 });
   doc.pipe(res);
 
-  doc.fontSize(20).font('Helvetica-Bold').text('MediConsultas', { align: 'center' });
-  doc.fontSize(10).font('Helvetica').text('Sistema Integrado de Gestão Médica', { align: 'center' });
-  doc.moveDown(1.5);
-
-  doc.fontSize(14).font('Helvetica-Bold').text('RECEITUÁRIO MÉDICO', { align: 'center' });
-  doc.moveDown(1);
+  renderLetterhead(doc, data.logoBuffer, 'RECEITUÁRIO MÉDICO');
 
   doc.fontSize(10).font('Helvetica-Bold').text('Profissional Responsável:');
   doc.font('Helvetica').text(`Dr(a). ${data.doctorName} — ${data.doctorLicense}`);
