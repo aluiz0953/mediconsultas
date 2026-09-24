@@ -1,0 +1,13 @@
+{
+  "name": "@mediconsultas/load-test",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node run.mjs"
+  },
+  "devDependencies": {
+    "autocannon": "^7.15.0",
+    "dotenv": "^16.4.5"
+  }
+}
