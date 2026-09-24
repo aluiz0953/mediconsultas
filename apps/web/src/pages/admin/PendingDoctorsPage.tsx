@@ -31,7 +31,7 @@ export function PendingDoctorsPage() {
   }
 
   useEffect(() => {
-    load()
+    queueMicrotask(load)
   }, [])
 
   async function approve(id: string) {

@@ -13,7 +13,9 @@ export function AndroidBackButton() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const pathnameRef = useRef(pathname)
-  pathnameRef.current = pathname
+  useEffect(() => {
+    pathnameRef.current = pathname
+  }, [pathname])
 
   useEffect(() => {
     if (Capacitor.getPlatform() !== 'android') return

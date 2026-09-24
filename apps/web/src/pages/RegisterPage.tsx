@@ -2,7 +2,8 @@ import { type FormEvent, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { apiUrl } from '../lib/api'
 import { VerificationStep } from '../components/VerificationStep'
-import { AddressFields, EMPTY_ADDRESS, serializeAddress, type Address } from '../components/AddressFields'
+import { AddressFields } from '../components/AddressFields'
+import { EMPTY_ADDRESS, serializeAddress, type Address } from '../lib/address'
 
 interface ApiError {
   code: string

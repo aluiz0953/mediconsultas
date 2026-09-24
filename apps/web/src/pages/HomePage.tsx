@@ -2,7 +2,7 @@ import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiFetch, ApiError } from '../lib/api'
 import { getCurrentUser, type Role } from '../lib/auth'
-import { parseAddress } from '../components/AddressFields'
+import { parseAddress } from '../lib/address'
 import { PageHeader } from '../components/PageHeader'
 import { QueueToggle, type QueueStatus } from '../components/QueueToggle'
 import { StatCard } from '../components/StatCard'
@@ -196,6 +196,8 @@ const FIELD_CLASS =
 // Staff can be patients too: their own appointments on the home page, or a
 // short form to add the patient data the secretary needs to book them.
 function MyAppointments() {
+  // Snapshot of "now" per visit; the page reloads its data on each visit anyway.
+  const [now] = useState(Date.now)
   const [state, setState] = useState<'loading' | 'no_profile' | 'ready'>('loading')
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [formOpen, setFormOpen] = useState(false)
@@ -222,7 +224,7 @@ function MyAppointments() {
   }
 
   useEffect(() => {
-    load()
+    queueMicrotask(load)
   }, [])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -244,7 +246,6 @@ function MyAppointments() {
   }
 
   if (state === 'ready') {
-    const now = Date.now()
     const upcoming = appointments
       .filter((a) => ACTIVE_STATUSES.has(a.status) && new Date(a.ends_at).getTime() > now)
       .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
@@ -327,6 +328,8 @@ export function HomePage() {
 }
 
 function PatientDashboard() {
+  // Snapshot of "now" per visit; the page reloads its data on each visit anyway.
+  const [now] = useState(Date.now)
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [profile, setProfile] = useState<RoleProfile | null>(null)
   const [newDocuments, setNewDocuments] = useState(0)
@@ -354,7 +357,6 @@ function PatientDashboard() {
       .finally(() => setLoading(false))
   }, [])
 
-  const now = Date.now()
   const upcoming = appointments
     .filter((a) => ACTIVE_STATUSES.has(a.status) && new Date(a.ends_at).getTime() > now)
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
@@ -444,6 +446,8 @@ function PatientDashboard() {
 }
 
 function DoctorDashboard() {
+  // Snapshot of "now" per visit; the page reloads its data on each visit anyway.
+  const [now] = useState(Date.now)
   const [today, setToday] = useState<Appointment[]>([])
   const [tomorrow, setTomorrow] = useState<Appointment[]>([])
   const [profile, setProfile] = useState<RoleProfile | null>(null)
@@ -465,7 +469,6 @@ function DoctorDashboard() {
       .finally(() => setLoading(false))
   }, [])
 
-  const now = Date.now()
   const todayActive = today.filter((a) => a.status !== 'CANCELLED')
   const nextPatients = today
     .filter((a) => ACTIVE_STATUSES.has(a.status) && new Date(a.ends_at).getTime() > now)
@@ -596,6 +599,8 @@ function DoctorQueues() {
 }
 
 function SecretaryDashboard() {
+  // Snapshot of "now" per visit; the page reloads its data on each visit anyway.
+  const [now] = useState(Date.now)
   const [today, setToday] = useState<Appointment[]>([])
   const [tomorrow, setTomorrow] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
@@ -614,7 +619,6 @@ function SecretaryDashboard() {
       .finally(() => setLoading(false))
   }, [])
 
-  const now = Date.now()
   const todayActive = today.filter((a) => a.status !== 'CANCELLED')
   const upcomingToday = today
     .filter((a) => ACTIVE_STATUSES.has(a.status) && new Date(a.ends_at).getTime() > now)

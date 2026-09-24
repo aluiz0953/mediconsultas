@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 
@@ -110,17 +110,22 @@ function GradientPlane({ color1, color2, fade, speed }: GradientProps) {
     [],
   )
 
+  const material = useRef<THREE.ShaderMaterial>(null)
+
   useFrame(({ clock }) => {
-    uniforms.uTime.value = clock.getElapsedTime() * speed
-    uniforms.uColor1.value.set(color1)
-    uniforms.uColor2.value.set(color2)
-    uniforms.uFade.value.set(fade)
+    const live = material.current?.uniforms
+    if (!live) return
+    live.uTime.value = clock.getElapsedTime() * speed
+    live.uColor1.value.set(color1)
+    live.uColor2.value.set(color2)
+    live.uFade.value.set(fade)
   })
 
   return (
     <mesh scale={[2, 2, 1]}>
       <planeGeometry args={[2, 2]} />
       <shaderMaterial
+        ref={material}
         vertexShader={vertexShader}
         fragmentShader={fragmentShader}
         uniforms={uniforms}

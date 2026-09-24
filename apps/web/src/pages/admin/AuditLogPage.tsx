@@ -81,8 +81,8 @@ export function AuditLogPage() {
   }
 
   useEffect(() => {
-    load({ action: action || undefined })
-  }, [])
+    queueMicrotask(() => load({ action: searchParams.get('action') || undefined }))
+  }, [searchParams])
 
   function handleFilter(event: FormEvent) {
     event.preventDefault()

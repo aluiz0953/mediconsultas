@@ -4,7 +4,8 @@ import { apiFetch, ApiError, apiUrl } from '../../lib/api'
 import { getToken } from '../../lib/auth'
 import { PageHeader } from '../../components/PageHeader'
 import { QueueToggle, type QueueStatus } from '../../components/QueueToggle'
-import { StatusBadge, APPOINTMENT_STATUS_LABELS } from '../../components/StatusBadge'
+import { StatusBadge } from '../../components/StatusBadge'
+import { APPOINTMENT_STATUS_LABELS } from '../../lib/appointmentStatus'
 
 interface QueueAppointment {
   id: string

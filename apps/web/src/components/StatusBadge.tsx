@@ -1,12 +1,4 @@
-export const APPOINTMENT_STATUS_LABELS: Record<string, string> = {
-  SCHEDULED: 'Aguardando',
-  CONFIRMED: 'Confirmada',
-  IN_PROGRESS: 'Em atendimento',
-  COMPLETED: 'Concluída',
-  CANCELLED: 'Cancelada',
-  PATIENT_ABSENT: 'Paciente faltou',
-  DOCTOR_ABSENT: 'Médico faltou',
-}
+import { APPOINTMENT_STATUS_LABELS } from '../lib/appointmentStatus'
 
 const STATUS_CLASS: Record<string, string> = {
   SCHEDULED: 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',

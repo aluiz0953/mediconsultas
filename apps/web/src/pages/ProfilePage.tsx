@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { apiFetch, ApiError } from '../lib/api'
-import { AddressFields, EMPTY_ADDRESS, parseAddress, serializeAddress, type Address } from '../components/AddressFields'
+import { AddressFields } from '../components/AddressFields'
+import { EMPTY_ADDRESS, parseAddress, serializeAddress, type Address } from '../lib/address'
 import { getCurrentUser, type Role } from '../lib/auth'
 import { PageHeader } from '../components/PageHeader'
 import { ThemeToggle } from '../components/ThemeToggle'

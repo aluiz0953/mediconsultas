@@ -43,7 +43,7 @@ export function ClinicSettingsPage() {
   }
 
   useEffect(() => {
-    load()
+    queueMicrotask(load)
   }, [])
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {

@@ -37,7 +37,7 @@ export function QueueToggle({ onChange }: { onChange?: (status: QueueStatus) => 
         onChange?.(data.status)
       })
       .catch(() => setStatus('CLOSED'))
-  }, [])
+  }, [onChange])
 
   async function toggle() {
     if (!status) return
