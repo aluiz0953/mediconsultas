@@ -1,4 +1,13 @@
+import { Capacitor } from '@capacitor/core'
+import { Directory, Filesystem } from '@capacitor/filesystem'
+import { Share } from '@capacitor/share'
 import { clearToken, getToken } from './auth'
+
+// Empty on the web (relative paths go through the Vite proxy). The Android build sets
+// VITE_API_URL to an absolute API origin, since the app has no proxy.
+export function apiUrl(path: string): string {
+  return `${import.meta.env.VITE_API_URL ?? ''}${path}`
+}
 
 export class ApiError extends Error {
   status: number
@@ -11,7 +20,7 @@ export class ApiError extends Error {
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken()
-  const response = await fetch(path, {
+  const response = await fetch(apiUrl(path), {
     ...init,
     headers: {
       'content-type': 'application/json',
@@ -39,7 +48,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 // <a href> won't work — fetch as a blob and open that instead.
 export async function openPdf(path: string): Promise<void> {
   const token = getToken()
-  const response = await fetch(path, {
+  const response = await fetch(apiUrl(path), {
     headers: token ? { authorization: `Bearer ${token}` } : {},
   })
 
@@ -48,6 +57,46 @@ export async function openPdf(path: string): Promise<void> {
   }
 
   const blob = await response.blob()
+  if (Capacitor.isNativePlatform()) {
+    return shareNativeFile(blob, path.includes('prescriptions') ? 'receita.pdf' : 'registro-clinico.pdf')
+  }
   const url = URL.createObjectURL(blob)
   window.open(url, '_blank')
+}
+
+// The Android WebView can't open a blob: URL in a new tab or honor <a download>,
+// so on the app the file is saved to cache and handed to the system share sheet
+// (PDF viewer, WhatsApp, Drive...).
+async function shareNativeFile(blob: Blob, filename: string): Promise<void> {
+  const data = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve((reader.result as string).split(',')[1])
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(blob)
+  })
+  const { uri } = await Filesystem.writeFile({ path: filename, data, directory: Directory.Cache })
+  await Share.share({ title: filename, files: [uri] })
+}
+
+// ADM-08: same Bearer-auth constraint as openPdf, but this one should save
+// to disk (compliance export) instead of opening in a tab.
+export async function downloadFile(path: string, filename: string): Promise<void> {
+  const token = getToken()
+  const response = await fetch(apiUrl(path), {
+    headers: token ? { authorization: `Bearer ${token}` } : {},
+  })
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({ message: 'Falha ao exportar o arquivo.' }))
+    throw new ApiError(response.status, body.message ?? 'Falha ao exportar o arquivo.')
+  }
+
+  const blob = await response.blob()
+  if (Capacitor.isNativePlatform()) return shareNativeFile(blob, filename)
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
 }

@@ -1,3 +1,5 @@
+import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core';
+
 const STORAGE_KEY = 'mediconsultas-theme';
 
 export type Theme = 'light' | 'dark';
@@ -12,4 +14,8 @@ export function getStoredTheme(): Theme {
 export function applyTheme(theme: Theme): void {
   document.documentElement.classList.toggle('dark', theme === 'dark');
   localStorage.setItem(STORAGE_KEY, theme);
+  // Android app: status/navigation bar icons must contrast with the page drawn behind them.
+  if (Capacitor.isNativePlatform()) {
+    void SystemBars.setStyle({ style: theme === 'dark' ? SystemBarsStyle.Dark : SystemBarsStyle.Light });
+  }
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiFetch, ApiError } from '../../lib/api'
+import { PageHeader } from '../../components/PageHeader'
 
 interface PendingDoctor {
   id: string
@@ -59,10 +60,10 @@ export function PendingDoctorsPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-slate-900 dark:text-white">Aprovação de médicos</h1>
-      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-        Cadastros de médicos aguardando aprovação para acessar a plataforma.
-      </p>
+      <PageHeader
+        title="Aprovação de médicos"
+        subtitle="Cadastros de médicos aguardando aprovação para acessar a plataforma."
+      />
 
       {error && (
         <p role="alert" className="mt-4 text-sm text-red-600 dark:text-red-400">
@@ -71,20 +72,20 @@ export function PendingDoctorsPage() {
       )}
 
       {loading ? (
-        <p className="mt-6 text-sm text-slate-500 dark:text-slate-400">Carregando…</p>
+        <p className="mt-6 text-sm text-neutral-500 dark:text-neutral-400">Carregando…</p>
       ) : doctors.length === 0 ? (
-        <p className="mt-6 text-sm text-slate-500 dark:text-slate-400">Nenhum médico pendente.</p>
+        <p className="mt-6 text-sm text-neutral-500 dark:text-neutral-400">Nenhum médico pendente.</p>
       ) : (
         <ul className="mt-6 space-y-3">
           {doctors.map((doctor) => (
             <li
               key={doctor.id}
-              className="rounded-lg border border-slate-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900"
+              className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="font-medium text-slate-900 dark:text-white">{doctor.full_name}</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                  <p className="font-medium text-neutral-900 dark:text-white">{doctor.full_name}</p>
+                  <p className="text-sm text-neutral-500 dark:text-neutral-400">
                     {doctor.specialty} · CRM/{doctor.license_state}
                   </p>
                 </div>
@@ -93,14 +94,14 @@ export function PendingDoctorsPage() {
                   <button
                     type="button"
                     onClick={() => approve(doctor.id)}
-                    className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+                    className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                   >
                     Aprovar
                   </button>
                   <button
                     type="button"
                     onClick={() => setRejecting(rejecting === doctor.id ? null : doctor.id)}
-                    className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-100 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"
+                    className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                   >
                     Rejeitar
                   </button>
@@ -114,13 +115,13 @@ export function PendingDoctorsPage() {
                     value={reason}
                     onChange={(event) => setReason(event.target.value)}
                     placeholder="Justificativa da rejeição"
-                    className="flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                    className="flex-1 rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
                   />
                   <button
                     type="button"
                     onClick={() => reject(doctor.id)}
                     disabled={!reason.trim()}
-                    className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-red-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Confirmar rejeição
                   </button>

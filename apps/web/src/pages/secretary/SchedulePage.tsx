@@ -1,6 +1,9 @@
+import { useSearchParams } from 'react-router-dom'
 import { type FormEvent, useEffect, useState } from 'react'
-import { apiFetch, ApiError } from '../../lib/api'
+import { apiFetch, ApiError, apiUrl } from '../../lib/api'
 import { getToken } from '../../lib/auth'
+import { PageHeader } from '../../components/PageHeader'
+import { StatusBadge, APPOINTMENT_STATUS_LABELS } from '../../components/StatusBadge'
 
 interface Doctor {
   id: string
@@ -30,16 +33,6 @@ interface ScheduleBlock {
   reason: string | null
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  SCHEDULED: 'Agendada',
-  CONFIRMED: 'Confirmada',
-  IN_PROGRESS: 'Em atendimento',
-  COMPLETED: 'Concluída',
-  CANCELLED: 'Cancelada',
-  PATIENT_ABSENT: 'Paciente faltou',
-  DOCTOR_ABSENT: 'Médico faltou',
-}
-
 function todayIsoDate(): string {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -50,7 +43,9 @@ function toDatetimeLocal(isoDate: string, time: string): string {
 }
 
 export function SchedulePage() {
-  const [date, setDate] = useState(todayIsoDate)
+  // Deep links (e.g. "consultas de amanhã" on the home page) can open a given day.
+  const [searchParams] = useSearchParams()
+  const [date, setDate] = useState(() => searchParams.get('date') ?? todayIsoDate())
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [patientQuery, setPatientQuery] = useState('')
@@ -61,6 +56,8 @@ export function SchedulePage() {
   const [endTime, setEndTime] = useState('09:30')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [agendaSearch, setAgendaSearch] = useState('')
+  const [agendaStatus, setAgendaStatus] = useState('')
 
   const [blocks, setBlocks] = useState<ScheduleBlock[]>([])
   const [blockDoctorId, setBlockDoctorId] = useState('')
@@ -73,7 +70,10 @@ export function SchedulePage() {
     setLoading(true)
     setError('')
     try {
-      const data = await apiFetch<{ items: Appointment[] }>(`/api/v1/secretary/appointments?date=${date}`)
+      const params = new URLSearchParams({ date })
+      if (agendaSearch.trim()) params.set('search', agendaSearch.trim())
+      if (agendaStatus) params.set('status', agendaStatus)
+      const data = await apiFetch<{ items: Appointment[] }>(`/api/v1/secretary/appointments?${params.toString()}`)
       setAppointments(data.items)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Falha ao carregar a agenda.')
@@ -83,9 +83,10 @@ export function SchedulePage() {
   }
 
   useEffect(() => {
-    loadAgenda()
+    const timeout = setTimeout(loadAgenda, agendaSearch ? 300 : 0)
+    return () => clearTimeout(timeout)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date])
+  }, [date, agendaSearch, agendaStatus])
 
   useEffect(() => {
     apiFetch<{ items: Doctor[] }>('/api/v1/secretary/appointments/doctors')
@@ -98,7 +99,7 @@ export function SchedulePage() {
   useEffect(() => {
     const token = getToken()
     if (!token) return
-    const source = new EventSource(`/api/v1/appointments/events?token=${encodeURIComponent(token)}`)
+    const source = new EventSource(apiUrl(`/api/v1/appointments/events?token=${encodeURIComponent(token)}`))
     source.onmessage = () => loadAgenda()
     return () => source.close()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -218,10 +219,10 @@ export function SchedulePage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-slate-900 dark:text-white">Agenda de consultas</h1>
-      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-        Marque, confirme ou cancele consultas com médicos aprovados.
-      </p>
+      <PageHeader
+        title="Agenda da clínica"
+        subtitle="Marque, confirme ou cancele consultas com médicos aprovados."
+      />
 
       {error && (
         <p role="alert" className="mt-4 text-sm text-red-600 dark:text-red-400">
@@ -231,10 +232,10 @@ export function SchedulePage() {
 
       <form
         onSubmit={handleSchedule}
-        className="mt-6 grid gap-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 sm:grid-cols-2"
+        className="mt-6 grid gap-4 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900 sm:grid-cols-2"
       >
         <div className="relative sm:col-span-2">
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Paciente</label>
+          <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Paciente</label>
           <input
             type="text"
             value={selectedPatient ? selectedPatient.full_name : patientQuery}
@@ -243,10 +244,10 @@ export function SchedulePage() {
               setPatientQuery(event.target.value)
             }}
             placeholder="Buscar paciente por nome"
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
           />
           {!selectedPatient && patientResults.length > 0 && (
-            <ul className="absolute z-10 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <ul className="absolute z-10 mt-1 w-full rounded-md border border-neutral-200 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
               {patientResults.map((patient) => (
                 <li key={patient.id}>
                   <button
@@ -255,7 +256,7 @@ export function SchedulePage() {
                       setSelectedPatient(patient)
                       setPatientResults([])
                     }}
-                    className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-gray-700"
+                    className="block w-full px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-700"
                   >
                     {patient.full_name}
                   </button>
@@ -266,11 +267,11 @@ export function SchedulePage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Médico</label>
+          <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Médico</label>
           <select
             value={selectedDoctorId}
             onChange={(event) => setSelectedDoctorId(event.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
           >
             <option value="">Selecione…</option>
             {doctors.map((doctor) => (
@@ -282,78 +283,97 @@ export function SchedulePage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Data</label>
+          <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Data</label>
           <input
             type="date"
             value={date}
             onChange={(event) => setDate(event.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Início</label>
+          <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Início</label>
           <input
             type="time"
             value={startTime}
             onChange={(event) => setStartTime(event.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Fim</label>
+          <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Fim</label>
           <input
             type="time"
             value={endTime}
             onChange={(event) => setEndTime(event.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
           />
         </div>
 
         <div className="sm:col-span-2">
           <button
             type="submit"
-            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
           >
             Agendar consulta
           </button>
         </div>
       </form>
 
-      <div className="mt-8 flex items-center gap-3">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Consultas do dia</h2>
+      <div className="mt-8 flex flex-wrap items-center gap-3">
+        <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">Consultas do dia</h2>
         <input
           type="date"
           value={date}
           onChange={(event) => setDate(event.target.value)}
-          className="rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+          className="rounded-md border border-neutral-300 px-2 py-1 text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
         />
+        <input
+          type="text"
+          value={agendaSearch}
+          onChange={(event) => setAgendaSearch(event.target.value)}
+          placeholder="Buscar por nome ou CPF"
+          className="rounded-md border border-neutral-300 px-2 py-1 text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
+        />
+        <select
+          value={agendaStatus}
+          onChange={(event) => setAgendaStatus(event.target.value)}
+          className="rounded-md border border-neutral-300 px-2 py-1 text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
+        >
+          <option value="">Todos os status</option>
+          {Object.entries(APPOINTMENT_STATUS_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {loading ? (
-        <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">Carregando…</p>
+        <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Carregando…</p>
       ) : appointments.length === 0 ? (
-        <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">Nenhuma consulta nesta data.</p>
+        <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Nenhuma consulta nesta data.</p>
       ) : (
         <ul className="mt-4 space-y-3">
           {appointments.map((appointment) => (
             <li
               key={appointment.id}
-              className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900"
+              className="flex items-center justify-between gap-4 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
             >
               <div>
-                <p className="font-medium text-slate-900 dark:text-white">
+                <p className="font-medium text-neutral-900 dark:text-white">
                   {new Date(appointment.starts_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                   {' – '}
                   {new Date(appointment.ends_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                 </p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
                   {appointment.patient.display_name} com {appointment.doctor.display_name}
                 </p>
-                <p className="text-xs text-slate-400 dark:text-slate-500">
-                  {STATUS_LABELS[appointment.status] ?? appointment.status}
-                </p>
+                <div className="mt-1.5">
+                  <StatusBadge status={appointment.status} />
+                </div>
               </div>
 
               {(appointment.status === 'SCHEDULED' || appointment.status === 'CONFIRMED') && (
@@ -362,7 +382,7 @@ export function SchedulePage() {
                     <button
                       type="button"
                       onClick={() => confirm(appointment.id)}
-                      className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+                      className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                     >
                       Confirmar
                     </button>
@@ -370,7 +390,7 @@ export function SchedulePage() {
                   <button
                     type="button"
                     onClick={() => cancel(appointment.id)}
-                    className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-100 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"
+                    className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                   >
                     Cancelar
                   </button>
@@ -382,21 +402,21 @@ export function SchedulePage() {
       )}
 
       <div className="mt-10">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Bloqueio de agenda</h2>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">Bloqueio de agenda</h2>
+        <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
           Bloqueie um intervalo na agenda de um médico (feriado, folga, emergência) para evitar agendamentos.
         </p>
 
         <form
           onSubmit={handleCreateBlock}
-          className="mt-4 grid gap-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 sm:grid-cols-2"
+          className="mt-4 grid gap-4 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900 sm:grid-cols-2"
         >
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Médico</label>
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Médico</label>
             <select
               value={blockDoctorId}
               onChange={(event) => setBlockDoctorId(event.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
             >
               <option value="">Selecione…</option>
               {doctors.map((doctor) => (
@@ -408,33 +428,33 @@ export function SchedulePage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Motivo</label>
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Motivo</label>
             <input
               type="text"
               value={blockReason}
               onChange={(event) => setBlockReason(event.target.value)}
               placeholder="Feriado, folga, emergência…"
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Início</label>
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Início</label>
             <input
               type="time"
               value={blockStartTime}
               onChange={(event) => setBlockStartTime(event.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Fim</label>
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Fim</label>
             <input
               type="time"
               value={blockEndTime}
               onChange={(event) => setBlockEndTime(event.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
             />
           </div>
 
@@ -447,7 +467,7 @@ export function SchedulePage() {
           <div className="sm:col-span-2">
             <button
               type="submit"
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
             >
               Bloquear horário
             </button>
@@ -457,25 +477,25 @@ export function SchedulePage() {
         {blockDoctorId && (
           <ul className="mt-4 space-y-2">
             {blocks.length === 0 && (
-              <p className="text-sm text-slate-500 dark:text-slate-400">Nenhum bloqueio para este médico nesta data.</p>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhum bloqueio para este médico nesta data.</p>
             )}
             {blocks.map((block) => (
               <li
                 key={block.id}
-                className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900"
+                className="flex items-center justify-between gap-4 rounded-lg border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
               >
                 <div>
-                  <p className="text-sm text-slate-900 dark:text-white">
+                  <p className="text-sm text-neutral-900 dark:text-white">
                     {new Date(block.starts_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                     {' – '}
                     {new Date(block.ends_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                   </p>
-                  {block.reason && <p className="text-xs text-slate-400 dark:text-slate-500">{block.reason}</p>}
+                  {block.reason && <p className="text-xs text-neutral-400 dark:text-neutral-500">{block.reason}</p>}
                 </div>
                 <button
                   type="button"
                   onClick={() => removeBlock(block.id)}
-                  className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-100 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"
+                  className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                 >
                   Remover
                 </button>

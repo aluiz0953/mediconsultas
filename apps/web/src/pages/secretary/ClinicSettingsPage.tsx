@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { apiFetch, ApiError } from '../../lib/api'
+import { PageHeader } from '../../components/PageHeader'
 
 interface ClinicSettings {
   logo_base64: string | null
@@ -75,32 +76,30 @@ export function ClinicSettingsPage() {
 
   return (
     <div className="max-w-lg space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900 dark:text-white">Configurações da clínica</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          A logo enviada aqui aparece no cabeçalho dos PDFs de receita e prontuário.
-        </p>
-      </div>
+      <PageHeader
+        title="Configurações da clínica"
+        subtitle="A logo enviada aqui aparece no cabeçalho dos PDFs de receita e prontuário."
+      />
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-        <h2 className="font-medium text-slate-900 dark:text-white">Logotipo</h2>
+      <section className="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+        <h2 className="font-medium text-neutral-900 dark:text-white">Logotipo</h2>
 
         {loading ? (
-          <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">Carregando…</p>
+          <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Carregando…</p>
         ) : (
           <>
             {settings?.logo_base64 ? (
               <img
                 src={`data:${settings.logo_content_type};base64,${settings.logo_base64}`}
                 alt="Logo atual da clínica"
-                className="mt-4 h-24 w-24 rounded-md border border-slate-200 object-contain dark:border-gray-700"
+                className="mt-4 h-24 w-24 rounded-md border border-neutral-200 object-contain dark:border-neutral-700"
               />
             ) : (
-              <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">Nenhuma logo configurada ainda.</p>
+              <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Nenhuma logo configurada ainda.</p>
             )}
 
             <div className="mt-4">
-              <label htmlFor="logo_file" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+              <label htmlFor="logo_file" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
                 Enviar nova logo (PNG ou JPEG, até 2MB)
               </label>
               <input
@@ -109,11 +108,11 @@ export function ClinicSettingsPage() {
                 type="file"
                 accept="image/png,image/jpeg"
                 onChange={handleFileChange}
-                className="mt-1 block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-600 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-emerald-700 dark:text-slate-300"
+                className="mt-1 block w-full text-sm text-neutral-600 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-600 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-emerald-700 dark:text-neutral-300"
               />
             </div>
 
-            {status === 'saving' && <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Enviando…</p>}
+            {status === 'saving' && <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Enviando…</p>}
             {status === 'error' && (
               <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
                 {error}

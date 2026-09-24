@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { apiFetch, ApiError } from '../../lib/api'
+import { PageHeader } from '../../components/PageHeader'
+import { StatusBadge } from '../../components/StatusBadge'
 
 interface PatientAppointment {
   id: string
@@ -9,6 +11,9 @@ interface PatientAppointment {
   status: string
 }
 
+// PATIENT_ABSENT reads as "Você faltou" here — first person, since this is
+// the patient's own view — unlike the shared "Paciente faltou" used by
+// staff-facing screens (StatusBadge's default).
 const STATUS_LABELS: Record<string, string> = {
   SCHEDULED: 'Agendada',
   CONFIRMED: 'Confirmada',
@@ -33,8 +38,10 @@ export function AppointmentsPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-slate-900 dark:text-white">Minhas consultas</h1>
-      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Consultas passadas e futuras agendadas em seu nome.</p>
+      <PageHeader
+        title="Minhas consultas"
+        subtitle="Consultas passadas e futuras agendadas em seu nome."
+      />
 
       {error && (
         <p role="alert" className="mt-4 text-sm text-red-600 dark:text-red-400">
@@ -43,25 +50,23 @@ export function AppointmentsPage() {
       )}
 
       {loading ? (
-        <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">Carregando…</p>
+        <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Carregando…</p>
       ) : appointments.length === 0 ? (
-        <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">Você ainda não tem nenhuma consulta.</p>
+        <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Você ainda não tem nenhuma consulta.</p>
       ) : (
         <ul className="mt-4 space-y-3">
           {appointments.map((appointment) => (
             <li
               key={appointment.id}
-              className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900"
+              className="flex items-center justify-between gap-4 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
             >
               <div>
-                <p className="font-medium text-slate-900 dark:text-white">{appointment.doctor.display_name}</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
+                <p className="font-medium text-neutral-900 dark:text-white">{appointment.doctor.display_name}</p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
                   {new Date(appointment.starts_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
                 </p>
               </div>
-              <span className="shrink-0 text-xs text-slate-400 dark:text-slate-500">
-                {STATUS_LABELS[appointment.status] ?? appointment.status}
-              </span>
+              <StatusBadge status={appointment.status} label={STATUS_LABELS[appointment.status]} />
             </li>
           ))}
         </ul>

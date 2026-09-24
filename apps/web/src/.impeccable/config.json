@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "apps/web/src/pages/secretary/ClinicSettingsPage.tsx"
+        ],
+        "createdAt": "2026-09-22T15:52:18.893Z",
+        "reason": "false positive: text-neutral-600 targets the native file input's own label text (rendered on the page background), not the file:bg-emerald-600 button pseudo-element, which already uses file:text-white for contrast"
+      }
+    ]
+  }
+}

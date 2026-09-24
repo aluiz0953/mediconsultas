@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
+import { AndroidBackButton } from './components/AndroidBackButton'
 import { ProtectedRoute, PublicOnlyRoute, RequireRole } from './routes/guards'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
@@ -31,7 +32,7 @@ const AppointmentsPage = lazy(() =>
 const RecordsPage = lazy(() => import('./pages/patient/RecordsPage').then((m) => ({ default: m.RecordsPage })))
 
 function PageFallback() {
-  return <p className="text-sm text-slate-500 dark:text-slate-400">Carregando…</p>
+  return <p className="text-sm text-neutral-500 dark:text-neutral-400">Carregando…</p>
 }
 
 function App() {
@@ -43,6 +44,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <AndroidBackButton />
       <Routes>
         <Route
           path="/login"

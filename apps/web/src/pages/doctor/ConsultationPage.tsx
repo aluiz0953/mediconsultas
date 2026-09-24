@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { apiFetch, ApiError, openPdf } from '../../lib/api'
+import { PageHeader } from '../../components/PageHeader'
 
 interface ClinicalRecordContent {
   chief_complaint: string
@@ -222,22 +223,19 @@ export function ConsultationPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900 dark:text-white">Atendimento em andamento</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Registro clínico e receita desta consulta.</p>
-      </div>
+      <PageHeader title="Atendimento em andamento" subtitle="Registro clínico e receita desta consulta." />
 
-      <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+      <section className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Registro clínico</h2>
+          <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">Registro clínico</h2>
           {record && (
             <div className="flex items-center gap-3">
-              <span className="text-xs text-slate-500 dark:text-slate-400">{record.status === 'DRAFT' ? 'Rascunho' : 'Finalizado'}</span>
+              <span className="text-xs text-neutral-500 dark:text-neutral-400">{record.status === 'DRAFT' ? 'Rascunho' : 'Finalizado'}</span>
               {record.status === 'FINALIZED' && (
                 <button
                   type="button"
                   onClick={() => openPdf(`/api/v1/doctor/clinical-records/${record.id}/pdf`)}
-                  className="rounded-md border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"
+                  className="rounded-md border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                 >
                   Baixar PDF
                 </button>
@@ -255,7 +253,7 @@ export function ConsultationPage() {
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           {CONTENT_FIELDS.map((field) => (
             <div key={field.key} className={field.key === 'assessment' || field.key === 'instructions' ? 'sm:col-span-2' : ''}>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
                 {field.label}
                 {field.required && ' *'}
               </label>
@@ -264,7 +262,7 @@ export function ConsultationPage() {
                 disabled={!recordEditable}
                 onChange={(event) => setContent((current) => ({ ...current, [field.key]: event.target.value }))}
                 rows={field.key === 'assessment' || field.key === 'instructions' ? 3 : 2}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 disabled:bg-slate-50 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:disabled:bg-gray-800/50"
+                className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 disabled:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white dark:disabled:bg-neutral-800/50"
               />
             </div>
           ))}
@@ -276,7 +274,7 @@ export function ConsultationPage() {
               <button
                 type="button"
                 onClick={openRecord}
-                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
               >
                 Abrir registro
               </button>
@@ -285,18 +283,18 @@ export function ConsultationPage() {
                 <button
                   type="button"
                   onClick={saveRecordDraft}
-                  className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-100 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"
+                  className="rounded-md border border-neutral-300 px-4 py-2 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                 >
                   Salvar rascunho
                 </button>
-                <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300">
                   <input type="checkbox" checked={releaseToPatient} onChange={(event) => setReleaseToPatient(event.target.checked)} />
                   Liberar ao paciente
                 </label>
                 <button
                   type="button"
                   onClick={finalizeRecord}
-                  className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+                  className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                 >
                   Finalizar registro
                 </button>
@@ -306,17 +304,17 @@ export function ConsultationPage() {
         )}
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+      <section className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Receita médica</h2>
+          <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">Receita médica</h2>
           {prescription && (
             <div className="flex items-center gap-3">
-              <span className="text-xs text-slate-500 dark:text-slate-400">{prescription.status === 'DRAFT' ? 'Rascunho' : 'Finalizada'}</span>
+              <span className="text-xs text-neutral-500 dark:text-neutral-400">{prescription.status === 'DRAFT' ? 'Rascunho' : 'Finalizada'}</span>
               {prescription.status === 'FINALIZED' && (
                 <button
                   type="button"
                   onClick={() => openPdf(`/api/v1/doctor/prescriptions/${prescription.id}/pdf`)}
-                  className="rounded-md border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"
+                  className="rounded-md border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                 >
                   Baixar PDF
                 </button>
@@ -331,7 +329,7 @@ export function ConsultationPage() {
           </p>
         )}
 
-        <label className="mt-4 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+        <label className="mt-4 flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300">
           <input
             type="checkbox"
             checked={noMedicationNeeded}
@@ -344,47 +342,47 @@ export function ConsultationPage() {
         {!noMedicationNeeded && (
           <div className="mt-3 space-y-3">
             {items.map((item, index) => (
-              <div key={index} className="grid gap-2 rounded-md border border-slate-200 p-3 dark:border-gray-700 sm:grid-cols-4">
+              <div key={index} className="grid gap-2 rounded-md border border-neutral-200 p-3 dark:border-neutral-700 sm:grid-cols-4">
                 <input
                   placeholder="Medicamento *"
                   value={item.medication_name}
                   disabled={!prescriptionEditable}
                   onChange={(event) => updateItem(index, 'medication_name', event.target.value)}
-                  className="rounded-md border border-slate-300 px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 disabled:bg-slate-50 dark:border-gray-700 dark:bg-gray-800 dark:text-white sm:col-span-2"
+                  className="rounded-md border border-neutral-300 px-2 py-1.5 text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 disabled:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white sm:col-span-2"
                 />
                 <input
                   placeholder="Dosagem"
                   value={item.dosage}
                   disabled={!prescriptionEditable}
                   onChange={(event) => updateItem(index, 'dosage', event.target.value)}
-                  className="rounded-md border border-slate-300 px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 disabled:bg-slate-50 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                  className="rounded-md border border-neutral-300 px-2 py-1.5 text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 disabled:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
                 />
                 <input
                   placeholder="Frequência"
                   value={item.frequency}
                   disabled={!prescriptionEditable}
                   onChange={(event) => updateItem(index, 'frequency', event.target.value)}
-                  className="rounded-md border border-slate-300 px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 disabled:bg-slate-50 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                  className="rounded-md border border-neutral-300 px-2 py-1.5 text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 disabled:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
                 />
                 <input
                   placeholder="Duração"
                   value={item.duration}
                   disabled={!prescriptionEditable}
                   onChange={(event) => updateItem(index, 'duration', event.target.value)}
-                  className="rounded-md border border-slate-300 px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 disabled:bg-slate-50 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                  className="rounded-md border border-neutral-300 px-2 py-1.5 text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 disabled:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
                 />
                 <input
                   placeholder="Instruções"
                   value={item.instructions}
                   disabled={!prescriptionEditable}
                   onChange={(event) => updateItem(index, 'instructions', event.target.value)}
-                  className="rounded-md border border-slate-300 px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 disabled:bg-slate-50 dark:border-gray-700 dark:bg-gray-800 dark:text-white sm:col-span-3"
+                  className="rounded-md border border-neutral-300 px-2 py-1.5 text-sm text-neutral-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 disabled:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white sm:col-span-3"
                 />
                 {prescriptionEditable && items.length > 1 && (
                   <button
                     type="button"
                     onClick={() => removeItem(index)}
-                    className="justify-self-start rounded-md border border-slate-300 px-2 py-1.5 text-xs text-slate-600 transition-colors hover:bg-slate-100 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"
+                    className="justify-self-start rounded-md border border-neutral-300 px-2 py-1.5 text-xs text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                   >
                     Remover item
                   </button>
@@ -395,7 +393,7 @@ export function ConsultationPage() {
               <button
                 type="button"
                 onClick={addItem}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-600 transition-colors hover:bg-slate-100 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"
+                className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
               >
                 + Adicionar item
               </button>
@@ -409,7 +407,7 @@ export function ConsultationPage() {
               <button
                 type="button"
                 onClick={openPrescription}
-                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
               >
                 Abrir receita
               </button>
@@ -418,14 +416,14 @@ export function ConsultationPage() {
                 <button
                   type="button"
                   onClick={savePrescriptionDraft}
-                  className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-100 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"
+                  className="rounded-md border border-neutral-300 px-4 py-2 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                 >
                   Salvar rascunho
                 </button>
                 <button
                   type="button"
                   onClick={finalizePrescription}
-                  className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+                  className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                 >
                   Finalizar receita
                 </button>
