@@ -56,7 +56,7 @@ function buildApp() {
     '/api/v1/secretary/appointments',
     requireAuth(JWT_SECRET),
     requireRole('SECRETARY', 'ADMIN'),
-    secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository, blockRepository }),
+    secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository, blockRepository, cpfHmacSecret: 'test-cpf-secret' }),
   );
   return { app, blockRepository, appointmentRepository, patientRepository, doctorRepository };
 }
