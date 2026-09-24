@@ -34,6 +34,16 @@ const patientPayload = {
   password: 'Senha#Forte10',
 };
 
+const secondPatientPayload = {
+  full_name: 'Carlos Pereira',
+  cpf: '100.000.000-19',
+  birth_date: '1985-05-05',
+  email: 'carlos@example.com',
+  phone: '11988888888',
+  address: 'Rua Exemplo, 456',
+  password: 'Senha#Forte10',
+};
+
 const doctorPayload = {
   full_name: 'Dr. João Silva',
   license_number: 'CRM-12345',
@@ -55,12 +65,12 @@ function buildApp(): Express {
   app.use('/api/v1/patients', patientsRouter({ repository: patientRepository, cpfHmacSecret: CPF_HMAC_SECRET, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }));
   app.use('/api/v1/doctors', doctorsRouter({ repository: doctorRepository, licenseHmacSecret: LICENSE_HMAC_SECRET, fieldEncryptionKey: FIELD_ENCRYPTION_KEY }));
   app.use('/api/v1/admin/doctors', adminDoctorsRouter({ repository: doctorRepository, auditEventRepository }));
-  app.use('/api/v1/secretary/appointments', secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository, blockRepository }));
+  app.use('/api/v1/secretary/appointments', secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository, blockRepository, cpfHmacSecret: CPF_HMAC_SECRET }));
   app.use(
     '/api/v1/doctor/appointments',
     requireAuth(JWT_SECRET),
     requireRole('DOCTOR'),
-    doctorAppointmentsRouter({ appointmentRepository, patientRepository }),
+    doctorAppointmentsRouter({ appointmentRepository, patientRepository, cpfHmacSecret: CPF_HMAC_SECRET }),
   );
   return app;
 }
@@ -192,6 +202,43 @@ test("lists the doctor's queue for the appointment day (DOC-03)", async () => {
     const otherDay = await get(`${base}/doctor/appointments?date=2026-10-02`, doctorAuthHeaders(doctorId));
     const otherDayBody = await json(otherDay);
     assert.equal((otherDayBody.items as unknown[]).length, 0);
+  } finally {
+    server.close();
+  }
+});
+
+test("filters the doctor's queue by status and by patient name/CPF", async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const { patientId, doctorId, appointmentId } = await seedConfirmedAppointment(base);
+    const secondPatientResponse = await post(`${base}/patients/register`, secondPatientPayload);
+    const { id: secondPatientId } = await json(secondPatientResponse);
+    await post(`${base}/secretary/appointments`, {
+      patient_id: secondPatientId,
+      doctor_id: doctorId,
+      starts_at: '2026-10-01T14:00:00Z',
+      ends_at: '2026-10-01T14:30:00Z',
+    });
+
+    const byStatus = await get(`${base}/doctor/appointments?date=2026-10-01&status=CONFIRMED`, doctorAuthHeaders(doctorId));
+    const byStatusBody = await json(byStatus);
+    assert.equal((byStatusBody.items as unknown[]).length, 1);
+    assert.equal((byStatusBody.items as Array<Record<string, unknown>>)[0].id, appointmentId);
+
+    const byName = await get(`${base}/doctor/appointments?date=2026-10-01&search=Carlos`, doctorAuthHeaders(doctorId));
+    const byNameBody = await json(byName);
+    const byNameItems = byNameBody.items as Array<Record<string, unknown>>;
+    assert.equal(byNameItems.length, 1);
+    assert.equal((byNameItems[0].patient as Record<string, unknown>).id, secondPatientId);
+
+    const byCpf = await get(
+      `${base}/doctor/appointments?date=2026-10-01&search=${encodeURIComponent('111.444.777-35')}`,
+      doctorAuthHeaders(doctorId),
+    );
+    const byCpfBody = await json(byCpf);
+    const byCpfItems = byCpfBody.items as Array<Record<string, unknown>>;
+    assert.equal(byCpfItems.length, 1);
+    assert.equal((byCpfItems[0].patient as Record<string, unknown>).id, patientId);
   } finally {
     server.close();
   }

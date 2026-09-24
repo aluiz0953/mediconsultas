@@ -104,3 +104,23 @@ test('rejects requests without a valid doctor token', async () => {
     server.close();
   }
 });
+
+test('queue switch: starts CLOSED, toggles OPEN/PAUSED, rejects other values', async () => {
+  const { app, repository } = buildApp();
+  const { server, base } = await startServer(app);
+  try {
+    const doctor = await seedDoctor(repository);
+    const headers = { 'content-type': 'application/json', authorization: `Bearer ${signSession({ sub: doctor.id, role: 'DOCTOR' }, JWT_SECRET)}` };
+    const put = (status: string) => fetch(`${base}/queue-status`, { method: 'PUT', headers, body: JSON.stringify({ status }) });
+    const current = async () => (await json(await fetch(`${base}/queue-status`, { headers }))).status;
+
+    assert.equal(await current(), 'CLOSED');
+    assert.equal((await put('OPEN')).status, 200);
+    assert.equal(await current(), 'OPEN');
+    assert.equal((await put('PAUSED')).status, 200);
+    assert.equal(await current(), 'PAUSED');
+    assert.equal((await put('BUSY')).status, 400);
+  } finally {
+    server.close();
+  }
+});

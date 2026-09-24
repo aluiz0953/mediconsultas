@@ -1,8 +1,14 @@
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 
-// ponytail: bcryptjs (pure JS, no native build step) instead of argon2id from
-// PRD section 28.2 — swap to argon2 once the app leaves the Windows-dev-only stage.
-const SALT_ROUNDS = 12;
+// Native bcrypt (N-API/libuv threadpool) instead of bcryptjs — the load test
+// showed bcryptjs serializing hashing on the main event loop almost 1:1 with
+// concurrency (a burst of logins could stall the whole API, not just login).
+// PRD section 28.2 names argon2id; still on bcrypt for now, native at least
+// stops it from blocking the event loop.
+// Cost factor 10 (down from 12): there's no deployed prod environment yet —
+// this only ever runs in dev/test — and 10 halves hash time vs. 12 with no
+// real exposure tradeoff at this stage.
+const SALT_ROUNDS = 10;
 
 export function hashPassword(plain: string): Promise<string> {
   return bcrypt.hash(plain, SALT_ROUNDS);

@@ -77,12 +77,12 @@ function buildApp(): Express {
     requireRole('ADMIN'),
     adminAuditRouter({ repository: auditEventRepository }),
   );
-  app.use('/api/v1/secretary/appointments', secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository, blockRepository }));
+  app.use('/api/v1/secretary/appointments', secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository, blockRepository, cpfHmacSecret: CPF_HMAC_SECRET }));
   app.use(
     '/api/v1/doctor/appointments',
     requireAuth(JWT_SECRET),
     requireRole('DOCTOR'),
-    doctorAppointmentsRouter({ appointmentRepository, patientRepository }),
+    doctorAppointmentsRouter({ appointmentRepository, patientRepository, cpfHmacSecret: CPF_HMAC_SECRET }),
   );
   app.use(
     '/api/v1/doctor',
@@ -233,6 +233,64 @@ test('never exposes clinical content, only ids and metadata', async () => {
     const response = await get(`${base}/admin/audit-events?resource_type=clinical_record`, adminHeaders);
     const raw = await response.text();
     assert.equal(raw.includes('informação clínica sensível'), false);
+  } finally {
+    server.close();
+  }
+});
+
+test('exports the audit log as CSV and requires a reason (ADM-08)', async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const { doctorId } = await seedApprovedDoctorWithAppointment(base);
+
+    const missingReason = await get(`${base}/admin/audit-events/export`, adminHeaders);
+    assert.equal(missingReason.status, 400);
+    const missingReasonBody = await json(missingReason);
+    assert.equal(missingReasonBody.code, 'REASON_REQUIRED');
+
+    const response = await get(
+      `${base}/admin/audit-events/export?action=doctor.approved&reason=${encodeURIComponent('Relatório de conformidade mensal')}`,
+      adminHeaders,
+    );
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('content-type'), 'text/csv; charset=utf-8');
+    assert.match(response.headers.get('content-disposition') ?? '', /attachment; filename="audit-log-\d+\.csv"/);
+
+    const csv = await response.text();
+    const lines = csv.split('\r\n');
+    assert.equal(lines[0], 'id,actor_user_id,actor_role,action,resource_type,resource_id,patient_id,result,reason,platform,created_at');
+    assert.equal(lines.length, 2);
+    assert.ok(lines[1].includes(doctorId));
+    assert.ok(!csv.includes('informação clínica'));
+
+    // Exporting itself must be audited with the given reason.
+    const auditTrail = await get(`${base}/admin/audit-events?action=audit_log.exported`, adminHeaders);
+    const auditTrailBody = await json(auditTrail);
+    const items = auditTrailBody.items as Array<Record<string, unknown>>;
+    assert.equal(items.length, 1);
+    assert.equal(items[0].reason, 'Relatório de conformidade mensal');
+    assert.equal(items[0].actor_role, 'ADMIN');
+  } finally {
+    server.close();
+  }
+});
+
+test('escapes CSV fields containing commas or quotes', async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const doctorResponse = await post(`${base}/doctors/register`, {
+      ...doctorPayload,
+      email: 'outro.medico@example.com',
+      license_number: 'CRM-99999',
+    });
+    const { id: doctorId } = await json(doctorResponse);
+    await post(`${base}/admin/doctors/${doctorId}/reject`, { reason: 'Faltam docs, "urgente"' }, adminHeaders);
+
+    const response = await get(`${base}/admin/audit-events/export?action=doctor.rejected&reason=teste`, adminHeaders);
+    const csv = await response.text();
+    const lines = csv.split('\r\n');
+    assert.equal(lines.length, 2);
+    assert.ok(lines[1].includes(`admin-1,ADMIN,doctor.rejected,doctor_profile,${doctorId},,SUCCESS,"Faltam docs, ""urgente""",`));
   } finally {
     server.close();
   }

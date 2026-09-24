@@ -12,6 +12,9 @@ export interface PatientsRouterConfig {
   repository: PatientRepository;
   cpfHmacSecret: string;
   fieldEncryptionKey: string;
+  // Sign-up contact verification (see verifications.ts). Always wired in
+  // index.ts; omitted only by tests that register accounts to seed data.
+  verifyContact?: (verificationId: unknown, contact: { email: string; phone?: string | null }) => Promise<boolean>;
 }
 
 export function patientsRouter(config: PatientsRouterConfig): Router {
@@ -68,6 +71,14 @@ export function patientsRouter(config: PatientsRouterConfig): Router {
       return;
     }
 
+    if (config.verifyContact && !(await config.verifyContact(req.body?.verification_id, { email: normalizedEmail, phone }))) {
+      res.status(400).json({
+        code: 'VERIFICATION_REQUIRED',
+        message: 'Confirme o código enviado para o seu e-mail ou celular antes de criar a conta.',
+      });
+      return;
+    }
+
     const record = await config.repository.create({
       fullName: full_name.trim(),
       email: normalizedEmail,
@@ -77,8 +88,7 @@ export function patientsRouter(config: PatientsRouterConfig): Router {
       birthDate: birth_date,
       phoneCiphertext: encryptField(phone, config.fieldEncryptionKey),
       addressCiphertext: encryptField(address, config.fieldEncryptionKey),
-      // ACTIVE immediately: there's no e-mail verification/activation flow yet,
-      // so PENDING would mean the patient could never pass the login check.
+      // ACTIVE immediately: the contact was already verified before this call.
       status: 'ACTIVE',
     });
 

@@ -38,6 +38,10 @@ export function authRouter(config: AuthRouterConfig): Router {
     const genericFailure = () =>
       res.status(401).json({ code: 'INVALID_CREDENTIALS', message: 'E-mail ou senha inválidos.' });
 
+    // Client-declared, only for telling web and Android logins apart in the audit log.
+    const platformHeader = req.get('x-client-platform');
+    const platform = platformHeader === 'web' || platformHeader === 'android' ? platformHeader : null;
+
     const normalizedEmail = email.toLowerCase();
     const user = await config.accountRepository.findAuthByEmail(normalizedEmail);
     if (!user) {
@@ -69,6 +73,7 @@ export function authRouter(config: AuthRouterConfig): Router {
         patientId: null,
         result: 'DENIED',
         reason: null,
+        platform,
       });
       genericFailure();
       return;
@@ -89,6 +94,7 @@ export function authRouter(config: AuthRouterConfig): Router {
       patientId: null,
       result: 'SUCCESS',
       reason: null,
+      platform,
     });
 
     // "Manter conectado": trades RF-01's 30-min inactivity expiry for a 30-day

@@ -12,13 +12,16 @@ export interface DoctorsRouterConfig {
   repository: DoctorRepository;
   licenseHmacSecret: string;
   fieldEncryptionKey: string;
+  // Sign-up contact verification (see verifications.ts). Always wired in
+  // index.ts; omitted only by tests that register accounts to seed data.
+  verifyContact?: (verificationId: unknown, contact: { email: string; phone?: string | null }) => Promise<boolean>;
 }
 
 export function doctorsRouter(config: DoctorsRouterConfig): Router {
   const router = Router();
 
   router.post('/register', async (req, res) => {
-    const { full_name, license_number, license_state, specialty, email, password } = req.body ?? {};
+    const { full_name, license_number, license_state, specialty, email, password, phone } = req.body ?? {};
 
     if (
       typeof full_name !== 'string' || !full_name.trim() ||
@@ -26,7 +29,8 @@ export function doctorsRouter(config: DoctorsRouterConfig): Router {
       typeof license_state !== 'string' ||
       typeof specialty !== 'string' || !specialty.trim() ||
       typeof email !== 'string' ||
-      typeof password !== 'string'
+      typeof password !== 'string' ||
+      (phone !== undefined && typeof phone !== 'string')
     ) {
       res.status(400).json({ code: 'INVALID_INPUT', message: 'Campos obrigatórios ausentes ou inválidos.' });
       return;
@@ -61,6 +65,14 @@ export function doctorsRouter(config: DoctorsRouterConfig): Router {
       return;
     }
 
+    if (config.verifyContact && !(await config.verifyContact(req.body?.verification_id, { email: normalizedEmail, phone }))) {
+      res.status(400).json({
+        code: 'VERIFICATION_REQUIRED',
+        message: 'Confirme o código enviado para o seu e-mail ou celular antes de criar a conta.',
+      });
+      return;
+    }
+
     const record = await config.repository.create({
       fullName: full_name.trim(),
       email: normalizedEmail,
@@ -69,7 +81,7 @@ export function doctorsRouter(config: DoctorsRouterConfig): Router {
       licenseHash,
       licenseState: license_state.toUpperCase(),
       specialty: specialty.trim(),
-      phoneCiphertext: null,
+      phoneCiphertext: phone?.trim() ? encryptField(phone.trim(), config.fieldEncryptionKey) : null,
       addressCiphertext: null,
     });
 

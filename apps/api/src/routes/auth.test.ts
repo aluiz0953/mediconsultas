@@ -80,6 +80,29 @@ test('logs in with correct credentials', async () => {
   }
 });
 
+test('records which platform a login came from, ignoring unknown values', async () => {
+  const built = buildApp();
+  const { server, base } = await startServer(built.app);
+  try {
+    await seedActiveAccount(built.accountRepository);
+    const login = (platform: string) =>
+      fetch(`${base}/login`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-client-platform': platform },
+        body: JSON.stringify({ email: 'user@example.com', password: PASSWORD }),
+      });
+
+    assert.equal((await login('android')).status, 200);
+    assert.equal((await login('hacker')).status, 200);
+
+    const [spoofed, android] = await built.auditEventRepository.list({ action: 'auth.login_succeeded' });
+    assert.equal(android.platform, 'android');
+    assert.equal(spoofed.platform, null);
+  } finally {
+    server.close();
+  }
+});
+
 test('returns a generic 401 for a wrong password, without revealing the account exists', async () => {
   const built = buildApp();
   const { server, base } = await startServer(built.app);

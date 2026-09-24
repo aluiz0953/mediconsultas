@@ -23,7 +23,15 @@ export interface PatientProfileUpdate {
   addressCiphertext: string;
 }
 
+// Patient data for an account that already exists with another role
+// (admin/secretary/doctor who also gets treated at the clinic).
+export type ExistingUserPatientProfile = Pick<
+  PatientRecord,
+  'fullName' | 'cpfCiphertext' | 'cpfHash' | 'birthDate' | 'phoneCiphertext' | 'addressCiphertext'
+>;
+
 export interface PatientRepository {
+  addProfileToExistingUser(userId: string, profile: ExistingUserPatientProfile): Promise<void>;
   existsByEmailOrCpfHash(email: string, cpfHash: string): Promise<boolean>;
   create(record: NewPatientRecord): Promise<PatientRecord>;
   findById(id: string): Promise<PatientRecord | undefined>;
@@ -59,6 +67,12 @@ export class InMemoryPatientRepository implements PatientRepository {
     return this.byId.get(id);
   }
 
+  async addProfileToExistingUser(userId: string, profile: ExistingUserPatientProfile): Promise<void> {
+    const record: PatientRecord = { ...profile, id: userId, email: '', passwordHash: '', status: 'ACTIVE', createdAt: new Date() };
+    this.byId.set(userId, record);
+    this.byCpfHash.set(record.cpfHash, record);
+  }
+
   async search(query: string): Promise<PatientRecord[]> {
     const needle = query.trim().toLowerCase();
     if (!needle) return [];
@@ -81,8 +95,9 @@ export class PgPatientRepository implements PatientRepository {
 
   async existsByEmailOrCpfHash(email: string, cpfHash: string): Promise<boolean> {
     const result = await this.pool.query(
-      `SELECT 1 FROM users u JOIN patient_profiles p ON p.user_id = u.id
-       WHERE u.email = $1 OR p.cpf_hash = $2 LIMIT 1`,
+      // users.email is unique across every role, so check it on its own.
+      `SELECT 1 FROM users WHERE email = $1
+       UNION ALL SELECT 1 FROM patient_profiles WHERE cpf_hash = $2 LIMIT 1`,
       [email, cpfHash],
     );
     return (result.rowCount ?? 0) > 0;
@@ -111,6 +126,14 @@ export class PgPatientRepository implements PatientRepository {
     } finally {
       client.release();
     }
+  }
+
+  async addProfileToExistingUser(userId: string, profile: ExistingUserPatientProfile): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO patient_profiles (user_id, full_name, cpf_ciphertext, cpf_hash, birth_date, phone_ciphertext, address_ciphertext)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [userId, profile.fullName, profile.cpfCiphertext, profile.cpfHash, profile.birthDate, profile.phoneCiphertext, profile.addressCiphertext],
+    );
   }
 
   async findById(id: string): Promise<PatientRecord | undefined> {
@@ -145,7 +168,7 @@ export class PgPatientRepository implements PatientRepository {
       `SELECT u.id, u.email, u.password_hash, u.status, u.created_at,
               p.full_name, p.cpf_ciphertext, p.cpf_hash, p.birth_date, p.phone_ciphertext, p.address_ciphertext
        FROM users u JOIN patient_profiles p ON p.user_id = u.id
-       WHERE p.full_name ILIKE $1
+       WHERE p.full_name ILIKE $1 AND u.deleted_at IS NULL
        ORDER BY p.full_name
        LIMIT 20`,
       [`%${needle}%`],

@@ -31,6 +31,16 @@ const patientPayload = {
   password: 'Senha#Forte10',
 };
 
+const secondPatientPayload = {
+  full_name: 'Carlos Pereira',
+  cpf: '100.000.000-19',
+  birth_date: '1985-05-05',
+  email: 'carlos@example.com',
+  phone: '11988888888',
+  address: 'Rua Exemplo, 456',
+  password: 'Senha#Forte10',
+};
+
 const doctorPayload = {
   full_name: 'Dr. João Silva',
   license_number: 'CRM-12345',
@@ -56,7 +66,7 @@ function buildApp(): Express {
     '/api/v1/secretary/appointments',
     requireAuth(JWT_SECRET),
     requireRole('SECRETARY', 'ADMIN'),
-    secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository, blockRepository }),
+    secretaryAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository, blockRepository, cpfHmacSecret: CPF_HMAC_SECRET }),
   );
   return app;
 }
@@ -309,6 +319,43 @@ test('lists appointments for the requested day', async () => {
     const otherDay = await get(`${base}/secretary/appointments?date=2026-10-02`);
     const otherDayBody = await json(otherDay);
     assert.equal((otherDayBody.items as unknown[]).length, 0);
+  } finally {
+    server.close();
+  }
+});
+
+test('filters the agenda by status and by patient name/CPF', async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const { patientId, doctorId } = await seedPatientAndApprovedDoctor(base);
+    const secondPatientResponse = await post(`${base}/patients/register`, secondPatientPayload);
+    const { id: secondPatientId } = await json(secondPatientResponse);
+
+    const firstAppointmentId = await scheduleAppointment(base, patientId, doctorId);
+    await post(`${base}/secretary/appointments/${firstAppointmentId}/confirm`, {});
+    await post(`${base}/secretary/appointments`, {
+      patient_id: secondPatientId,
+      doctor_id: doctorId,
+      starts_at: '2026-10-01T14:00:00Z',
+      ends_at: '2026-10-01T14:30:00Z',
+    });
+
+    const byStatus = await get(`${base}/secretary/appointments?date=2026-10-01&status=CONFIRMED`);
+    const byStatusBody = await json(byStatus);
+    assert.equal((byStatusBody.items as unknown[]).length, 1);
+    assert.equal((byStatusBody.items as Array<Record<string, unknown>>)[0].id, firstAppointmentId);
+
+    const byName = await get(`${base}/secretary/appointments?date=2026-10-01&search=Carlos`);
+    const byNameBody = await json(byName);
+    const byNameItems = byNameBody.items as Array<Record<string, unknown>>;
+    assert.equal(byNameItems.length, 1);
+    assert.equal((byNameItems[0].patient as Record<string, unknown>).id, secondPatientId);
+
+    const byCpf = await get(`${base}/secretary/appointments?date=2026-10-01&search=${encodeURIComponent('111.444.777-35')}`);
+    const byCpfBody = await json(byCpf);
+    const byCpfItems = byCpfBody.items as Array<Record<string, unknown>>;
+    assert.equal(byCpfItems.length, 1);
+    assert.equal((byCpfItems[0].patient as Record<string, unknown>).id, patientId);
   } finally {
     server.close();
   }

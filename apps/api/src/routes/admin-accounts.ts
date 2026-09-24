@@ -1,14 +1,10 @@
-import { randomBytes } from 'node:crypto';
 import { Router } from 'express';
 import type { AccountRepository, AccountRole, AccountStatus } from '../repositories/account-repository.js';
 import type { AuditEventRepository } from '../repositories/audit-event-repository.js';
 import type { PasswordResetRepository } from '../repositories/password-reset-repository.js';
-import type { SendPasswordResetLink } from '../notifications/mailer.js';
-import { hashPassword } from '../auth/password.js';
-import { hmacSha256Hex } from '../crypto/hmac.js';
+import type { RoleInvitationRepository } from '../repositories/role-invitation-repository.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const INVITE_TOKEN_TTL_MINUTES = 60 * 24;
 
 // ADM-05: role changes are only allowed between the two roles with no
 // dedicated profile table (ADMIN/SECRETARY). Changing role for a PATIENT or
@@ -28,8 +24,7 @@ export interface AdminAccountsRouterConfig {
   accountRepository: AccountRepository;
   auditEventRepository: AuditEventRepository;
   passwordResetRepository: PasswordResetRepository;
-  resetTokenHmacSecret: string;
-  sendPasswordResetLink: SendPasswordResetLink;
+  roleInvitationRepository: RoleInvitationRepository;
 }
 
 export function adminAccountsRouter(config: AdminAccountsRouterConfig): Router {
@@ -57,63 +52,57 @@ export function adminAccountsRouter(config: AdminAccountsRouterConfig): Router {
     });
   });
 
-  // ADM-03: invite-only for ADMIN/SECRETARY — self-registration already
-  // covers DOCTOR (DOC-01) and PATIENT (PAT-01). The invitee sets their own
-  // password via /auth/password-reset/confirm; the admin never sees it.
+  // ADM-03: invites an EXISTING account to become ADMIN or SECRETARY. Nothing
+  // changes until the invitee accepts it from their own session (see invitations.ts).
   router.post('/', async (req, res) => {
-    const { email, full_name, role } = req.body ?? {};
-    if (
-      typeof email !== 'string' ||
-      !EMAIL_RE.test(email) ||
-      typeof full_name !== 'string' ||
-      !full_name.trim() ||
-      typeof role !== 'string' ||
-      !INVITABLE_ROLES.includes(role as AccountRole)
-    ) {
-      res.status(400).json({
-        code: 'INVALID_INPUT',
-        message: 'E-mail, nome e perfil (ADMIN ou SECRETARY) são obrigatórios.',
+    const { email, role } = req.body ?? {};
+    if (typeof email !== 'string' || !EMAIL_RE.test(email) || typeof role !== 'string' || !INVITABLE_ROLES.includes(role as AccountRole)) {
+      res.status(400).json({ code: 'INVALID_INPUT', message: 'E-mail e perfil (ADMIN ou SECRETARY) são obrigatórios.' });
+      return;
+    }
+
+    const invitee = await config.accountRepository.findAuthByEmail(email.trim().toLowerCase());
+    if (!invitee) {
+      res.status(404).json({
+        code: 'ACCOUNT_NOT_FOUND',
+        message: 'Nenhuma conta com este e-mail. A pessoa precisa se cadastrar antes de receber o convite.',
       });
       return;
     }
-
-    const normalizedEmail = email.toLowerCase();
-    if (await config.accountRepository.existsByEmail(normalizedEmail)) {
-      res.status(409).json({ code: 'ACCOUNT_ALREADY_EXISTS', message: 'Já existe uma conta com este e-mail.' });
+    if (invitee.role === 'DOCTOR') {
+      res.status(400).json({
+        code: 'ROLE_CHANGE_NOT_SUPPORTED',
+        message: 'Contas de médico não podem ser convidadas: a agenda e os atendimentos dependem desse perfil.',
+      });
+      return;
+    }
+    if (invitee.role === role) {
+      res.status(409).json({ code: 'ALREADY_HAS_ROLE', message: 'Esta conta já tem esse perfil.' });
+      return;
+    }
+    if (invitee.status !== 'ACTIVE') {
+      res.status(400).json({ code: 'ACCOUNT_NOT_ACTIVE', message: 'Só contas ativas podem receber convites.' });
+      return;
+    }
+    if (await config.roleInvitationRepository.findPendingForUser(invitee.id)) {
+      res.status(409).json({ code: 'INVITATION_PENDING', message: 'Esta conta já tem um convite aguardando resposta.' });
       return;
     }
 
-    // No password is set by the admin — a random unusable hash holds the
-    // column until the invitee sets their own via the reset-token flow.
-    const placeholderHash = await hashPassword(randomBytes(32).toString('hex'));
-    const account = await config.accountRepository.create({
-      email: normalizedEmail,
-      passwordHash: placeholderHash,
-      role: role as AccountRole,
-      fullName: full_name.trim(),
-    });
-
-    const token = randomBytes(32).toString('hex');
-    const tokenHash = hmacSha256Hex(token, config.resetTokenHmacSecret);
-    await config.passwordResetRepository.create(
-      account.id,
-      tokenHash,
-      new Date(Date.now() + INVITE_TOKEN_TTL_MINUTES * 60_000),
-    );
-    config.sendPasswordResetLink({ email: account.email, token, purpose: 'invite' });
+    const invitation = await config.roleInvitationRepository.create(invitee.id, role as AccountRole, req.user?.sub ?? null);
 
     await config.auditEventRepository.record({
       actorUserId: req.user?.sub ?? null,
       actorRole: req.user?.role ?? null,
       action: 'account.invited',
       resourceType: 'user',
-      resourceId: account.id,
+      resourceId: invitee.id,
       patientId: null,
       result: 'SUCCESS',
-      reason: `role=${role}`,
+      reason: `${invitee.role} -> ${role}`,
     });
 
-    res.status(201).json({ id: account.id, email: account.email, role: account.role, status: account.status });
+    res.status(201).json({ id: invitation.id, role: invitation.role, status: invitation.status });
   });
 
   // ADM-04
@@ -225,6 +214,49 @@ export function adminAccountsRouter(config: AdminAccountsRouterConfig): Router {
     });
 
     res.json({ id: updated!.id, role: updated!.role });
+  });
+
+  // Removes an account from the platform. Soft delete — see AccountRepository.remove.
+  router.delete('/:accountId', async (req, res) => {
+    const { reason } = req.body ?? {};
+    if (typeof reason !== 'string' || !reason.trim()) {
+      res.status(400).json({ code: 'REASON_REQUIRED', message: 'Justificativa é obrigatória para remover uma conta.' });
+      return;
+    }
+    if (req.params.accountId === req.user?.sub) {
+      res.status(400).json({ code: 'CANNOT_REMOVE_SELF', message: 'Você não pode remover a própria conta.' });
+      return;
+    }
+
+    const existing = await config.accountRepository.findSummaryById(req.params.accountId);
+    if (!existing) {
+      res.status(404).json({ code: 'ACCOUNT_NOT_FOUND', message: 'Conta não encontrada.' });
+      return;
+    }
+
+    if (existing.role === 'ADMIN' && existing.status === 'ACTIVE') {
+      const activeAdmins = await config.accountRepository.countActiveByRole('ADMIN');
+      if (activeAdmins <= 1) {
+        res.status(409).json({ code: 'LAST_ADMIN', message: 'Não é possível remover o último administrador ativo.' });
+        return;
+      }
+    }
+
+    await config.accountRepository.remove(existing.id);
+    await config.passwordResetRepository.invalidateAllForUser(existing.id);
+
+    await config.auditEventRepository.record({
+      actorUserId: req.user?.sub ?? null,
+      actorRole: req.user?.role ?? null,
+      action: 'account.removed',
+      resourceType: 'user',
+      resourceId: existing.id,
+      patientId: null,
+      result: 'SUCCESS',
+      reason: `role=${existing.role}; ${reason.trim()}`,
+    });
+
+    res.status(204).end();
   });
 
   return router;

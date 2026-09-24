@@ -4,12 +4,15 @@ import type { PatientRepository } from '../repositories/patient-repository.js';
 import type { DoctorRepository } from '../repositories/doctor-repository.js';
 import type { DoctorScheduleBlockRepository } from '../repositories/doctor-schedule-block-repository.js';
 import { publishAppointmentChange } from '../realtime/appointment-events.js';
+import { hmacSha256Hex } from '../crypto/hmac.js';
+import { normalizeCpf } from '../validation/cpf.js';
 
 export interface SecretaryAppointmentsRouterConfig {
   appointmentRepository: AppointmentRepository;
   patientRepository: PatientRepository;
   doctorRepository: DoctorRepository;
   blockRepository: DoctorScheduleBlockRepository;
+  cpfHmacSecret: string;
 }
 
 export function secretaryAppointmentsRouter(config: SecretaryAppointmentsRouterConfig): Router {
@@ -20,12 +23,16 @@ export function secretaryAppointmentsRouter(config: SecretaryAppointmentsRouterC
   router.get('/doctors', async (_req, res) => {
     const doctors = await config.doctorRepository.listApproved();
     res.json({
-      items: doctors.map((doctor) => ({
-        id: doctor.id,
-        full_name: doctor.fullName,
-        license_state: doctor.licenseState,
-        specialty: doctor.specialty,
-      })),
+      items: await Promise.all(
+        doctors.map(async (doctor) => ({
+          id: doctor.id,
+          full_name: doctor.fullName,
+          license_state: doctor.licenseState,
+          specialty: doctor.specialty,
+          // The doctor's queue switch for today (CLOSED / OPEN / PAUSED).
+          queue_status: await config.doctorRepository.getQueueStatus(doctor.id),
+        })),
+      ),
     });
   });
 
@@ -46,24 +53,42 @@ export function secretaryAppointmentsRouter(config: SecretaryAppointmentsRouterC
       return;
     }
     const to = new Date(from.getTime() + 24 * 60 * 60 * 1000);
+    const statusFilter = typeof req.query.status === 'string' ? req.query.status : undefined;
+    const searchTerm = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+    // CPF is stored encrypted (never ILIKE-searchable), so a search hits it only
+    // on an exact hash match — same technique as the uniqueness check at registration.
+    const searchCpfHash = searchTerm.length > 0 ? hmacSha256Hex(normalizeCpf(searchTerm), config.cpfHmacSecret) : null;
+    const searchNameNeedle = searchTerm.toLowerCase();
 
     const appointments = await config.appointmentRepository.listByDateRange(from, to);
-    const items = await Promise.all(
+    const enriched = await Promise.all(
       appointments.map(async (appointment) => {
         const [patient, doctor] = await Promise.all([
           config.patientRepository.findById(appointment.patientId),
           config.doctorRepository.findById(appointment.doctorId),
         ]);
-        return {
-          id: appointment.id,
-          patient: { id: appointment.patientId, display_name: patient?.fullName ?? 'Paciente removido' },
-          doctor: { id: appointment.doctorId, display_name: doctor?.fullName ?? 'Médico removido' },
-          starts_at: appointment.startsAt.toISOString(),
-          ends_at: appointment.endsAt.toISOString(),
-          status: appointment.status,
-        };
+        return { appointment, patient, doctor };
       }),
     );
+
+    const items = enriched
+      .filter(({ appointment, patient }) => {
+        if (statusFilter && appointment.status !== statusFilter) return false;
+        if (searchTerm) {
+          const nameMatch = patient?.fullName.toLowerCase().includes(searchNameNeedle) ?? false;
+          const cpfMatch = patient?.cpfHash === searchCpfHash;
+          if (!nameMatch && !cpfMatch) return false;
+        }
+        return true;
+      })
+      .map(({ appointment, patient, doctor }) => ({
+        id: appointment.id,
+        patient: { id: appointment.patientId, display_name: patient?.fullName ?? 'Paciente removido' },
+        doctor: { id: appointment.doctorId, display_name: doctor?.fullName ?? 'Médico removido' },
+        starts_at: appointment.startsAt.toISOString(),
+        ends_at: appointment.endsAt.toISOString(),
+        status: appointment.status,
+      }));
     res.json({ items });
   });
 

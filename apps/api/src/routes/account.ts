@@ -17,6 +17,41 @@ export interface AccountRouterConfig {
 export function accountRouter(config: AccountRouterConfig): Router {
   const router = Router();
 
+  router.get('/', async (req, res) => {
+    const account = await config.accountRepository.findSummaryById(req.user!.sub);
+    if (!account) {
+      res.status(404).json({ code: 'ACCOUNT_NOT_FOUND', message: 'Conta não encontrada.' });
+      return;
+    }
+    res.json({ id: account.id, email: account.email, full_name: account.fullName, role: account.role });
+  });
+
+  // ADMIN/SECRETARY have no role-specific profile table, so their display
+  // name lives directly on `users.full_name` — PATIENT/DOCTOR edit their name
+  // through their own profile endpoint instead, where it takes priority.
+  router.patch('/profile', async (req, res) => {
+    const userId = req.user!.sub;
+    const { full_name } = req.body ?? {};
+    if (typeof full_name !== 'string' || !full_name.trim()) {
+      res.status(400).json({ code: 'INVALID_INPUT', message: 'Nome completo é obrigatório.' });
+      return;
+    }
+
+    await config.accountRepository.updateFullName(userId, full_name.trim());
+    await config.auditEventRepository.record({
+      actorUserId: userId,
+      actorRole: req.user!.role,
+      action: 'account.profile_updated',
+      resourceType: 'user',
+      resourceId: userId,
+      patientId: null,
+      result: 'SUCCESS',
+      reason: null,
+    });
+
+    res.json({ message: 'Perfil atualizado com sucesso.', full_name: full_name.trim() });
+  });
+
   router.patch('/password', async (req, res) => {
     const userId = req.user!.sub;
     const { current_password, new_password } = req.body ?? {};

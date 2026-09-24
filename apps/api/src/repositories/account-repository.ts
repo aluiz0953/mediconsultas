@@ -49,6 +49,7 @@ export interface AccountRepository {
   existsByEmail(email: string): Promise<boolean>;
   create(account: NewAccount): Promise<AccountSummary>;
   updateEmail(id: string, email: string): Promise<void>;
+  updateFullName(id: string, fullName: string): Promise<void>;
   updatePasswordHash(id: string, passwordHash: string): Promise<void>;
   recordFailedLogin(id: string, failedLoginCount: number, lockedUntil: Date | null): Promise<void>;
   recordSuccessfulLogin(id: string): Promise<void>;
@@ -56,11 +57,20 @@ export interface AccountRepository {
   updateStatus(id: string, status: AccountStatus): Promise<AccountSummary | undefined>;
   countActiveByRole(role: AccountRole): Promise<number>;
   updateRole(id: string, oldRole: AccountRole, newRole: AccountRole, grantedBy: string): Promise<AccountSummary | undefined>;
+  // Soft delete: appointments, clinical records and the audit trail reference
+  // the user row and must be kept, so the row stays but is disabled, hidden
+  // from lookups, and its e-mail is released for reuse.
+  remove(id: string): Promise<void>;
+}
+
+export function removedEmail(id: string): string {
+  return `removido+${id}@removido.invalid`;
 }
 
 interface InMemoryAccount extends AccountAuth {
   fullName: string | null;
   createdAt: Date;
+  deletedAt?: Date;
 }
 
 export class InMemoryAccountRepository implements AccountRepository {
@@ -76,7 +86,7 @@ export class InMemoryAccountRepository implements AccountRepository {
 
   async findSummaryById(id: string): Promise<AccountSummary | undefined> {
     const account = this.byId.get(id);
-    return account ? this.toSummary(account) : undefined;
+    return account && !account.deletedAt ? this.toSummary(account) : undefined;
   }
 
   async existsByEmail(email: string): Promise<boolean> {
@@ -102,6 +112,11 @@ export class InMemoryAccountRepository implements AccountRepository {
   async updateEmail(id: string, email: string): Promise<void> {
     const account = this.byId.get(id);
     if (account) account.email = email;
+  }
+
+  async updateFullName(id: string, fullName: string): Promise<void> {
+    const account = this.byId.get(id);
+    if (account) account.fullName = fullName;
   }
 
   async updatePasswordHash(id: string, passwordHash: string): Promise<void> {
@@ -130,7 +145,7 @@ export class InMemoryAccountRepository implements AccountRepository {
   }
 
   async search(filter: AccountSearchFilter): Promise<AccountSummary[]> {
-    let results = [...this.byId.values()];
+    let results = [...this.byId.values()].filter((a) => !a.deletedAt);
     if (filter.query) {
       const needle = filter.query.trim().toLowerCase();
       results = results.filter(
@@ -159,6 +174,14 @@ export class InMemoryAccountRepository implements AccountRepository {
     if (!account) return undefined;
     account.role = newRole;
     return this.toSummary(account);
+  }
+
+  async remove(id: string): Promise<void> {
+    const account = this.byId.get(id);
+    if (!account) return;
+    account.status = 'DISABLED';
+    account.email = removedEmail(id);
+    account.deletedAt = new Date();
   }
 
   private toSummary(account: InMemoryAccount): AccountSummary {
@@ -221,7 +244,7 @@ export class PgAccountRepository implements AccountRepository {
   }
 
   async findSummaryById(id: string): Promise<AccountSummary | undefined> {
-    const result = await this.pool.query(`${SUMMARY_SELECT} WHERE u.id = $1`, [id]);
+    const result = await this.pool.query(`${SUMMARY_SELECT} WHERE u.id = $1 AND u.deleted_at IS NULL`, [id]);
     return result.rows[0] ? mapSummaryRow(result.rows[0]) : undefined;
   }
 
@@ -261,6 +284,10 @@ export class PgAccountRepository implements AccountRepository {
     await this.pool.query(`UPDATE users SET email = $2, updated_at = NOW() WHERE id = $1`, [id, email]);
   }
 
+  async updateFullName(id: string, fullName: string): Promise<void> {
+    await this.pool.query(`UPDATE users SET full_name = $2, updated_at = NOW() WHERE id = $1`, [id, fullName]);
+  }
+
   async updatePasswordHash(id: string, passwordHash: string): Promise<void> {
     await this.pool.query(
       `UPDATE users SET password_hash = $2, failed_login_count = 0, locked_until = NULL, updated_at = NOW() WHERE id = $1`,
@@ -284,7 +311,7 @@ export class PgAccountRepository implements AccountRepository {
   }
 
   async search(filter: AccountSearchFilter): Promise<AccountSummary[]> {
-    const conditions: string[] = [];
+    const conditions: string[] = ['u.deleted_at IS NULL'];
     const params: unknown[] = [];
 
     if (filter.query) {
@@ -300,7 +327,7 @@ export class PgAccountRepository implements AccountRepository {
       conditions.push(`u.status = $${params.length}`);
     }
 
-    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const where = `WHERE ${conditions.join(' AND ')}`;
     params.push(filter.limit ?? 50);
 
     const result = await this.pool.query(
@@ -317,6 +344,27 @@ export class PgAccountRepository implements AccountRepository {
     ]);
     if (result.rowCount === 0) return undefined;
     return this.findSummaryById(id);
+  }
+
+  async remove(id: string): Promise<void> {
+    // Also frees the CPF/CRM so the person can register again (same tombstone as migration 007).
+    const tombstone = `encode(sha256(convert_to('removed:' || $1::text, 'UTF8')), 'hex')`;
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `UPDATE users SET status = 'DISABLED', email = $2, deleted_at = NOW(), updated_at = NOW() WHERE id = $1`,
+        [id, removedEmail(id)],
+      );
+      await client.query(`UPDATE patient_profiles SET cpf_hash = ${tombstone} WHERE user_id = $1`, [id]);
+      await client.query(`UPDATE doctor_profiles SET license_hash = ${tombstone} WHERE user_id = $1`, [id]);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   async countActiveByRole(role: AccountRole): Promise<number> {

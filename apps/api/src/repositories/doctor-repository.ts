@@ -39,6 +39,8 @@ export interface DoctorProfileUpdate {
   addressCiphertext: string | null;
 }
 
+export type QueueStatus = 'CLOSED' | 'OPEN' | 'PAUSED';
+
 export interface DoctorRepository {
   existsByEmailOrLicenseHash(email: string, licenseHash: string): Promise<boolean>;
   create(record: NewDoctorRecord): Promise<DoctorRecord>;
@@ -47,6 +49,9 @@ export interface DoctorRepository {
   listApproved(): Promise<DoctorRecord[]>;
   updateApproval(id: string, update: ApprovalUpdate): Promise<DoctorRecord | undefined>;
   updateProfile(id: string, update: DoctorProfileUpdate): Promise<DoctorRecord | undefined>;
+  // Today's queue switch; a status set on a previous day reads as CLOSED.
+  getQueueStatus(id: string): Promise<QueueStatus>;
+  setQueueStatus(id: string, status: QueueStatus): Promise<void>;
 }
 
 // ponytail: same Map-based stand-in as InMemoryPatientRepository — swap for a
@@ -104,6 +109,17 @@ export class InMemoryDoctorRepository implements DoctorRepository {
     existing.addressCiphertext = update.addressCiphertext;
     return existing;
   }
+
+  private readonly queue = new Map<string, { status: QueueStatus; day: string }>();
+
+  async getQueueStatus(id: string): Promise<QueueStatus> {
+    const entry = this.queue.get(id);
+    return entry && entry.day === new Date().toDateString() ? entry.status : 'CLOSED';
+  }
+
+  async setQueueStatus(id: string, status: QueueStatus): Promise<void> {
+    this.queue.set(id, { status, day: new Date().toDateString() });
+  }
 }
 
 const DOCTOR_SELECT = `
@@ -142,8 +158,9 @@ export class PgDoctorRepository implements DoctorRepository {
 
   async existsByEmailOrLicenseHash(email: string, licenseHash: string): Promise<boolean> {
     const result = await this.pool.query(
-      `SELECT 1 FROM users u JOIN doctor_profiles d ON d.user_id = u.id
-       WHERE u.email = $1 OR d.license_hash = $2 LIMIT 1`,
+      // users.email is unique across every role, so check it on its own.
+      `SELECT 1 FROM users WHERE email = $1
+       UNION ALL SELECT 1 FROM doctor_profiles WHERE license_hash = $2 LIMIT 1`,
       [email, licenseHash],
     );
     return (result.rowCount ?? 0) > 0;
@@ -197,12 +214,12 @@ export class PgDoctorRepository implements DoctorRepository {
   }
 
   async listPending(): Promise<DoctorRecord[]> {
-    const result = await this.pool.query(`${DOCTOR_SELECT} WHERE d.approval_status = 'PENDING_APPROVAL'`);
+    const result = await this.pool.query(`${DOCTOR_SELECT} WHERE d.approval_status = 'PENDING_APPROVAL' AND u.deleted_at IS NULL`);
     return result.rows.map(mapDoctorRow);
   }
 
   async listApproved(): Promise<DoctorRecord[]> {
-    const result = await this.pool.query(`${DOCTOR_SELECT} WHERE d.approval_status = 'APPROVED' ORDER BY d.full_name`);
+    const result = await this.pool.query(`${DOCTOR_SELECT} WHERE d.approval_status = 'APPROVED' AND u.deleted_at IS NULL ORDER BY d.full_name`);
     return result.rows.map(mapDoctorRow);
   }
 
@@ -225,5 +242,20 @@ export class PgDoctorRepository implements DoctorRepository {
     );
     if (result.rowCount === 0) return undefined;
     return this.findById(id);
+  }
+  async getQueueStatus(id: string): Promise<QueueStatus> {
+    const result = await this.pool.query(
+      `SELECT CASE WHEN queue_status_updated_at::date = CURRENT_DATE THEN queue_status ELSE 'CLOSED' END AS status
+       FROM doctor_profiles WHERE user_id = $1`,
+      [id],
+    );
+    return (result.rows[0]?.status as QueueStatus | undefined) ?? 'CLOSED';
+  }
+
+  async setQueueStatus(id: string, status: QueueStatus): Promise<void> {
+    await this.pool.query(
+      `UPDATE doctor_profiles SET queue_status = $2, queue_status_updated_at = NOW() WHERE user_id = $1`,
+      [id, status],
+    );
   }
 }

@@ -7,12 +7,12 @@ import { InMemoryAccountRepository, type AccountRepository } from '../repositori
 import { InMemoryPasswordResetRepository } from '../repositories/password-reset-repository.js';
 import { InMemoryAuditEventRepository } from '../repositories/audit-event-repository.js';
 import { requireAuth, requireRole } from '../auth/middleware.js';
-import { signSession } from '../auth/token.js';
+import { signSession, verifySession } from '../auth/token.js';
 import { hashPassword } from '../auth/password.js';
-import type { SendPasswordResetLink } from '../notifications/mailer.js';
+import { InMemoryRoleInvitationRepository } from '../repositories/role-invitation-repository.js';
+import { invitationsRouter } from './invitations.js';
 
 const JWT_SECRET = 'test-jwt-secret';
-const RESET_TOKEN_HMAC_SECRET = 'test-reset-secret';
 const ADMIN_TOKEN = signSession({ sub: 'admin-1', role: 'ADMIN' }, JWT_SECRET);
 const authHeaders = { authorization: `Bearer ${ADMIN_TOKEN}` };
 
@@ -42,8 +42,7 @@ function buildApp() {
   const accountRepository = new InMemoryAccountRepository();
   const passwordResetRepository = new InMemoryPasswordResetRepository();
   const auditEventRepository = new InMemoryAuditEventRepository();
-  const sentLinks: { email: string; token: string; purpose: string }[] = [];
-  const sendPasswordResetLink: SendPasswordResetLink = (params) => sentLinks.push(params);
+  const roleInvitationRepository = new InMemoryRoleInvitationRepository();
 
   const app: Express = express();
   app.use(express.json());
@@ -51,15 +50,14 @@ function buildApp() {
     '/api/v1/admin/accounts',
     requireAuth(JWT_SECRET),
     requireRole('ADMIN'),
-    adminAccountsRouter({
-      accountRepository,
-      auditEventRepository,
-      passwordResetRepository,
-      resetTokenHmacSecret: RESET_TOKEN_HMAC_SECRET,
-      sendPasswordResetLink,
-    }),
+    adminAccountsRouter({ accountRepository, auditEventRepository, passwordResetRepository, roleInvitationRepository }),
   );
-  return { app, accountRepository, passwordResetRepository, auditEventRepository, sentLinks };
+  app.use(
+    '/api/v1/me/invitations',
+    requireAuth(JWT_SECRET),
+    invitationsRouter({ jwtSecret: JWT_SECRET, accountRepository, auditEventRepository, roleInvitationRepository }),
+  );
+  return { app, accountRepository, passwordResetRepository, auditEventRepository, roleInvitationRepository };
 }
 
 async function startServer(app: Express) {
@@ -108,31 +106,48 @@ test('ADM-02: lists and searches accounts', async () => {
   }
 });
 
-test('ADM-03: invites a SECRETARY account without the admin ever setting its password', async () => {
+test('ADM-03: invites an existing account; the role only changes once the invitee accepts', async () => {
   const built = buildApp();
   const { server, base } = await startServer(built.app);
   try {
-    const response = await post(base, { email: 'sec@example.com', full_name: 'Secretária Nova', role: 'SECRETARY' });
-    assert.equal(response.status, 201);
-    const body = await json(response);
-    assert.equal(body.status, 'PENDING');
+    await seedAdmin(built.accountRepository, 'admin-a');
+    const patient = await seedPatient(built.accountRepository);
 
-    assert.equal(built.sentLinks.length, 1);
-    assert.equal(built.sentLinks[0].purpose, 'invite');
+    assert.equal((await post(base, { email: 'nobody@example.com', role: 'SECRETARY' })).status, 404);
+    assert.equal((await post(base, { email: 'patient@example.com', role: 'SECRETARY' })).status, 201);
+    assert.equal((await post(base, { email: 'patient@example.com', role: 'ADMIN' })).status, 409);
+    assert.equal((await built.accountRepository.findAuthById(patient.id))?.role, 'PATIENT');
 
-    const events = await built.auditEventRepository.list({ action: 'account.invited' });
-    assert.equal(events.length, 1);
+    const invitees = `${base.replace('/admin/accounts', '/me/invitations')}`;
+    const inviteeAuth = { authorization: `Bearer ${signSession({ sub: patient.id, role: 'PATIENT' }, JWT_SECRET)}` };
+    const pending = await json(await fetch(invitees, { headers: inviteeAuth }));
+    const [invitation] = pending.items as { id: string; role: string }[];
+    assert.equal(invitation.role, 'SECRETARY');
+
+    const outsider = { authorization: `Bearer ${signSession({ sub: 'someone-else', role: 'PATIENT' }, JWT_SECRET)}` };
+    assert.equal((await fetch(`${invitees}/${invitation.id}/accept`, { method: 'POST', headers: outsider })).status, 404);
+
+    const accepted = await fetch(`${invitees}/${invitation.id}/accept`, { method: 'POST', headers: inviteeAuth });
+    assert.equal(accepted.status, 200);
+    assert.equal(verifySession((await json(accepted)).access_token as string, JWT_SECRET).role, 'SECRETARY');
+    assert.equal((await built.accountRepository.findAuthById(patient.id))?.role, 'SECRETARY');
+    assert.equal((await fetch(`${invitees}/${invitation.id}/accept`, { method: 'POST', headers: inviteeAuth })).status, 404);
   } finally {
     server.close();
   }
 });
 
-test('ADM-03: rejects inviting a DOCTOR or PATIENT (self-registration covers those)', async () => {
+test('ADM-03: rejects inviting to DOCTOR/PATIENT roles and inviting doctor accounts', async () => {
   const built = buildApp();
   const { server, base } = await startServer(built.app);
   try {
-    const response = await post(base, { email: 'doc@example.com', full_name: 'Novo Médico', role: 'DOCTOR' });
+    await seedPatient(built.accountRepository);
+    assert.equal((await post(base, { email: 'patient@example.com', role: 'DOCTOR' })).status, 400);
+    const doctor = await built.accountRepository.create({ email: 'doc@example.com', passwordHash: 'x', role: 'DOCTOR', fullName: null });
+    await built.accountRepository.updateStatus(doctor.id, 'ACTIVE');
+    const response = await post(base, { email: 'doc@example.com', role: 'SECRETARY' });
     assert.equal(response.status, 400);
+    assert.equal((await json(response)).code, 'ROLE_CHANGE_NOT_SUPPORTED');
   } finally {
     server.close();
   }
@@ -195,6 +210,37 @@ test('ADM-05: changes role between ADMIN and SECRETARY but not for a PATIENT acc
     assert.equal(rejected.status, 400);
     const rejectedBody = await json(rejected);
     assert.equal(rejectedBody.code, 'ROLE_CHANGE_NOT_SUPPORTED');
+  } finally {
+    server.close();
+  }
+});
+
+test('removes an account: requires a reason, hides it, frees the e-mail, keeps the last admin', async () => {
+  const built = buildApp();
+  const { server, base } = await startServer(built.app);
+  const del = (id: string, body: unknown) =>
+    fetch(`${base}/${id}`, {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json', ...authHeaders },
+      body: JSON.stringify(body),
+    });
+  try {
+    const onlyAdmin = await seedAdmin(built.accountRepository, 'admin-a');
+    const patient = await seedPatient(built.accountRepository);
+
+    assert.equal((await del(patient.id, {})).status, 400);
+    assert.equal((await del(patient.id, { reason: 'cadastro duplicado' })).status, 204);
+
+    const list = await json(await fetch(base, { headers: authHeaders }));
+    assert.deepEqual((list.items as { id: string }[]).map((a) => a.id), [onlyAdmin.id]);
+    assert.equal(await built.accountRepository.existsByEmail('patient@example.com'), false);
+    assert.equal((await built.accountRepository.findAuthById(patient.id))?.status, 'DISABLED');
+    const [removed] = await built.auditEventRepository.list({ action: 'account.removed' });
+    assert.equal(removed.resourceId, patient.id);
+
+    assert.equal((await del(patient.id, { reason: 'de novo' })).status, 404);
+    const lastAdmin = await del(onlyAdmin.id, { reason: 'teste' });
+    assert.equal(lastAdmin.status, 409);
   } finally {
     server.close();
   }

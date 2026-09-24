@@ -45,6 +45,10 @@ function patch(url: string, body: unknown, token: string) {
   });
 }
 
+function get(url: string, token: string) {
+  return fetch(url, { headers: { authorization: `Bearer ${token}` } });
+}
+
 function json(response: Response): Promise<Record<string, unknown>> {
   return response.json() as Promise<Record<string, unknown>>;
 }
@@ -113,6 +117,64 @@ test('changes e-mail when unique and current password is correct', async () => {
 
     const stored = await built.accountRepository.findAuthById(account.id);
     assert.equal(stored?.email, 'new@example.com');
+  } finally {
+    server.close();
+  }
+});
+
+test('returns the account summary for the logged-in user', async () => {
+  const built = buildApp();
+  const { server, base } = await startServer(built.app);
+  try {
+    const account = await built.accountRepository.create({
+      email: 'admin@example.com',
+      passwordHash: await hashPassword(CURRENT_PASSWORD),
+      role: 'ADMIN',
+      fullName: 'Admin Um',
+    });
+    const token = signSession({ sub: account.id, role: 'ADMIN' }, JWT_SECRET);
+
+    const response = await get(base, token);
+    assert.equal(response.status, 200);
+    const body = await json(response);
+    assert.equal(body.email, 'admin@example.com');
+    assert.equal(body.full_name, 'Admin Um');
+  } finally {
+    server.close();
+  }
+});
+
+test('updates the full name for a role with no dedicated profile table', async () => {
+  const built = buildApp();
+  const { server, base } = await startServer(built.app);
+  try {
+    const account = await built.accountRepository.create({
+      email: 'secretary@example.com',
+      passwordHash: await hashPassword(CURRENT_PASSWORD),
+      role: 'SECRETARY',
+      fullName: 'Nome Antigo',
+    });
+    const token = signSession({ sub: account.id, role: 'SECRETARY' }, JWT_SECRET);
+
+    const response = await patch(`${base}/profile`, { full_name: 'Nome Novo' }, token);
+    assert.equal(response.status, 200);
+
+    const stored = await built.accountRepository.findSummaryById(account.id);
+    assert.equal(stored?.fullName, 'Nome Novo');
+  } finally {
+    server.close();
+  }
+});
+
+test('rejects a profile update with an empty full name', async () => {
+  const built = buildApp();
+  const { server, base } = await startServer(built.app);
+  try {
+    const account = await seedAccount(built.accountRepository);
+    const token = signSession({ sub: account.id, role: 'PATIENT' }, JWT_SECRET);
+
+    const response = await patch(`${base}/profile`, { full_name: '   ' }, token);
+    assert.equal(response.status, 400);
   } finally {
     server.close();
   }

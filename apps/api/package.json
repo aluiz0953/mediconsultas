@@ -7,10 +7,10 @@
     "dev": "tsx src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "node --import tsx --test src/auth/password.test.ts src/auth/token.test.ts src/validation/cpf.test.ts src/validation/password-policy.test.ts src/validation/brazilian-uf.test.ts src/crypto/hmac.test.ts src/crypto/field-encryption.test.ts src/routes/patients.test.ts src/routes/doctors.test.ts src/routes/admin-doctors.test.ts src/routes/secretary-appointments.test.ts src/routes/doctor-appointments.test.ts src/routes/clinical-records.test.ts src/routes/prescriptions.test.ts src/routes/patient-clinical-records.test.ts src/routes/patient-prescriptions.test.ts src/routes/patient-appointments.test.ts src/routes/admin-audit.test.ts src/routes/patient-profile.test.ts src/routes/doctor-profile.test.ts src/routes/account.test.ts src/routes/auth.test.ts src/routes/admin-accounts.test.ts src/routes/secretary-schedule-blocks.test.ts src/routes/clinic-settings.test.ts"
+    "test": "node --import tsx --test src/auth/password.test.ts src/auth/token.test.ts src/validation/cpf.test.ts src/validation/password-policy.test.ts src/validation/brazilian-uf.test.ts src/crypto/hmac.test.ts src/crypto/field-encryption.test.ts src/routes/patients.test.ts src/routes/doctors.test.ts src/routes/admin-doctors.test.ts src/routes/secretary-appointments.test.ts src/routes/doctor-appointments.test.ts src/routes/clinical-records.test.ts src/routes/prescriptions.test.ts src/routes/patient-clinical-records.test.ts src/routes/patient-prescriptions.test.ts src/routes/patient-appointments.test.ts src/routes/admin-audit.test.ts src/routes/patient-profile.test.ts src/routes/doctor-profile.test.ts src/routes/account.test.ts src/routes/auth.test.ts src/routes/admin-accounts.test.ts src/routes/secretary-schedule-blocks.test.ts src/routes/clinic-settings.test.ts src/routes/verifications.test.ts src/routes/self-patient-profile.test.ts"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
+    "bcrypt": "^6.0.0",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "express-async-errors": "^3.1.1",
@@ -19,7 +19,7 @@
     "pg": "^8.12.0"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
+    "@types/bcrypt": "^6.0.0",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^22.5.4",

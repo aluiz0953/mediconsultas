@@ -3,6 +3,8 @@ import type { Pool } from 'pg';
 
 export type AuditResult = 'SUCCESS' | 'DENIED' | 'FAILURE';
 
+export type ClientPlatform = 'web' | 'android';
+
 export interface AuditEventRecord {
   id: string;
   actorUserId: string | null;
@@ -13,6 +15,8 @@ export interface AuditEventRecord {
   patientId: string | null;
   result: AuditResult;
   reason: string | null;
+  // Only set on login events: which client (web browser or Android app) was used.
+  platform?: ClientPlatform | null;
   createdAt: Date;
 }
 
@@ -62,6 +66,7 @@ function mapAuditEventRow(row: Record<string, unknown>): AuditEventRecord {
     patientId: (row.patient_id as string | null) ?? null,
     result: row.result as AuditResult,
     reason: (row.reason as string | null) ?? null,
+    platform: (row.platform as ClientPlatform | null) ?? null,
     createdAt: row.created_at as Date,
   };
 }
@@ -71,8 +76,8 @@ export class PgAuditEventRepository implements AuditEventRepository {
 
   async record(event: NewAuditEvent): Promise<AuditEventRecord> {
     const result = await this.pool.query(
-      `INSERT INTO audit_events (actor_user_id, actor_role, action, resource_type, resource_id, patient_id, result, reason)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO audit_events (actor_user_id, actor_role, action, resource_type, resource_id, patient_id, result, reason, platform)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
       [
         event.actorUserId,
@@ -83,6 +88,7 @@ export class PgAuditEventRepository implements AuditEventRepository {
         event.patientId,
         event.result,
         event.reason,
+        event.platform ?? null,
       ],
     );
     return mapAuditEventRow(result.rows[0]);

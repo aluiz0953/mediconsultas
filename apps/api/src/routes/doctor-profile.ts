@@ -36,6 +36,21 @@ export function doctorProfileRouter(config: DoctorProfileRouterConfig): Router {
   // RF-03: full_name, phone and address are self-editable. License number,
   // license state and specialty follow the stricter admin-validated rules for
   // professional data and aren't touched here.
+  // Home page queue switch: OPEN (green) / PAUSED (red); CLOSED until opened each day.
+  router.get('/queue-status', async (req, res) => {
+    res.json({ status: await config.repository.getQueueStatus(req.user!.sub) });
+  });
+
+  router.put('/queue-status', async (req, res) => {
+    const { status } = req.body ?? {};
+    if (status !== 'OPEN' && status !== 'PAUSED' && status !== 'CLOSED') {
+      res.status(400).json({ code: 'INVALID_INPUT', message: 'Status da fila deve ser OPEN, PAUSED ou CLOSED.' });
+      return;
+    }
+    await config.repository.setQueueStatus(req.user!.sub, status);
+    res.json({ status });
+  });
+
   router.patch('/me', async (req, res) => {
     const { full_name, phone, address } = req.body ?? {};
     if (
