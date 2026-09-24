@@ -48,7 +48,7 @@ const medicationName = `Dipirona E2E ${suffix}`;
 async function login(page: Page, email: string, password: string) {
   await page.goto('/login');
   await page.getByLabel('E-mail').fill(email);
-  await page.getByLabel('Senha').fill(password);
+  await page.getByLabel('Senha', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page).toHaveURL('/');
 }
@@ -73,9 +73,19 @@ test.describe.serial('MediConsultas — ciclo completo ponta a ponta', () => {
     await page.getByLabel('Data de nascimento').fill('1990-01-01');
     await page.getByLabel('E-mail').fill(patient.email);
     await page.getByLabel('Telefone').fill('11999999999');
-    await page.getByLabel('Endereço').fill('Rua Teste E2E, 123');
+    // Filled by hand (not via the CEP lookup) so the suite never depends on ViaCEP being up.
+    await page.getByLabel('CEP').fill('01310-100');
+    await page.getByLabel('Rua').fill('Rua Teste E2E');
+    await page.getByLabel('Número').fill('123');
+    await page.getByLabel('Bairro').fill('Centro');
+    await page.getByLabel('Cidade').fill('São Paulo');
+    await page.getByLabel('UF', { exact: true }).fill('SP');
     await page.getByLabel('Senha').fill(STRONG_PASSWORD);
     await page.getByRole('button', { name: 'Criar conta' }).click();
+    // Contact verification: needs EXPOSE_VERIFICATION_CODE=true on the API (no real e-mail/SMS provider).
+    await page.getByRole('button', { name: 'Enviar código' }).click();
+    await page.getByLabel('Código de verificação').fill(await page.getByTestId('dev-code').innerText());
+    await page.getByRole('button', { name: 'Confirmar e criar conta' }).click();
 
     await expect(page).toHaveURL('/login');
     await expect(page.getByRole('status')).toContainText('Conta criada com sucesso');
@@ -86,8 +96,14 @@ test.describe.serial('MediConsultas — ciclo completo ponta a ponta', () => {
 
   test('2. admin aprova o cadastro do médico (DOC-01 + ADM-06)', async ({ page, request }) => {
     // DOC-01 has no UI form yet — register through the API, then approve through the real UI.
+    const sent = await request.post(`${API_BASE_URL}/api/v1/verifications`, {
+      data: { channel: 'email', destination: doctor.email },
+    });
+    const { id: verificationId, dev_code } = await sent.json();
+    await request.post(`${API_BASE_URL}/api/v1/verifications/${verificationId}/confirm`, { data: { code: dev_code } });
     const response = await request.post(`${API_BASE_URL}/api/v1/doctors/register`, {
       data: {
+        verification_id: verificationId,
         full_name: doctor.fullName,
         license_number: doctor.license,
         license_state: 'SP',
@@ -117,7 +133,15 @@ test.describe.serial('MediConsultas — ciclo completo ponta a ponta', () => {
 
     await page.getByPlaceholder('Buscar paciente por nome').fill(patient.fullName);
     await page.getByRole('button', { name: patient.fullName }).click();
-    await page.locator('select').selectOption(doctor.id);
+    // Scoped to the scheduling form itself, not just the "Médico" label: the
+    // page also has a status-filter <select> below and a second "Médico"
+    // field in the schedule-block form further down, both ambiguous otherwise.
+    // The label isn't programmatically associated with its field (no
+    // htmlFor/id, no wrapping), so getByLabel can't see it either — same
+    // reason fieldByLabel() exists; this inlines that pattern pre-scoped.
+    await page
+      .locator('form:has(button:has-text("Agendar consulta")) div:has(> label:has-text("Médico")) select')
+      .selectOption(doctor.id);
     await page.getByRole('button', { name: 'Agendar consulta' }).click();
 
     const appointmentRow = page.locator('li', { hasText: patient.fullName });
@@ -154,13 +178,18 @@ test.describe.serial('MediConsultas — ciclo completo ponta a ponta', () => {
     await page.getByRole('button', { name: 'Finalizar receita' }).click();
     await expect(page.getByText('Finalizada', { exact: true })).toBeVisible();
 
-    const popup = await Promise.all([
-      page.waitForEvent('popup'),
-      page.getByRole('button', { name: 'Baixar PDF' }).click(),
-    ]).then(([popupPage]) => popupPage);
-    await popup.waitForLoadState();
-    expect(popup.url()).toContain('blob:');
-    await popup.close();
+    // Playwright's bundled Chromium downloads a blob: PDF instead of rendering
+    // it inline, so `window.open` never produces a page that reaches 'load' —
+    // the documented pattern is to await the 'download' event instead.
+    // Scoped to the "Receita médica" section: the clinical record above also
+    // has its own "Baixar PDF" button now (RF-08), so the bare button locator
+    // is ambiguous between the two once both are finalized.
+    const prescriptionSection = page.locator('section', { has: page.getByRole('heading', { name: 'Receita médica' }) });
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      prescriptionSection.getByRole('button', { name: 'Baixar PDF' }).click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/\.pdf$/i);
 
     await logout(page);
   });
@@ -175,13 +204,11 @@ test.describe.serial('MediConsultas — ciclo completo ponta a ponta', () => {
     await page.getByRole('button', { name: 'Receitas' }).click();
     await expect(page.getByText(medicationName)).toBeVisible();
 
-    const popup = await Promise.all([
-      page.waitForEvent('popup'),
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
       page.getByRole('button', { name: 'Baixar PDF' }).click(),
-    ]).then(([popupPage]) => popupPage);
-    await popup.waitForLoadState();
-    expect(popup.url()).toContain('blob:');
-    await popup.close();
+    ]);
+    expect(download.suggestedFilename()).toMatch(/\.pdf$/i);
 
     await logout(page);
   });
