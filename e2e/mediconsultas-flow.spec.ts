@@ -78,9 +78,10 @@ test.describe.serial('MediConsultas — ciclo completo ponta a ponta', () => {
     await page.getByLabel('Rua').fill('Rua Teste E2E');
     await page.getByLabel('Número').fill('123');
     await page.getByLabel('Bairro').fill('Centro');
-    await page.getByLabel('Cidade').fill('São Paulo');
+    await page.getByLabel('Cidade', { exact: true }).fill('São Paulo');
     await page.getByLabel('UF', { exact: true }).fill('SP');
     await page.getByLabel('Senha').fill(STRONG_PASSWORD);
+    await page.getByRole('checkbox', { name: /Li e concordo/ }).check();
     await page.getByRole('button', { name: 'Criar conta' }).click();
     // Contact verification: needs EXPOSE_VERIFICATION_CODE=true on the API (no real e-mail/SMS provider).
     await page.getByRole('button', { name: 'Enviar código' }).click();

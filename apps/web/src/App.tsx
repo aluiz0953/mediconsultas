@@ -8,6 +8,7 @@ import { RegisterPage } from './pages/RegisterPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { HomePage } from './pages/HomePage'
+import { LegalPage } from './pages/LegalPage'
 import { applyTheme, getStoredTheme } from './lib/theme'
 
 // Role-scoped pages are lazy: a given user only ever loads the 1-3 chunks
@@ -78,6 +79,11 @@ function App() {
             </PublicOnlyRoute>
           }
         />
+
+        {/* Legal documents: public for everyone, signed in or not. */}
+        <Route path="/termos" element={<LegalPage doc="termos" />} />
+        <Route path="/privacidade" element={<LegalPage doc="privacidade" />} />
+        <Route path="/direitos-autorais" element={<LegalPage doc="direitos-autorais" />} />
 
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
