@@ -282,6 +282,12 @@ export function LoginPage() {
             <LockIcon className="h-3.5 w-3.5" />
             Ambiente privado e protegido
           </p>
+
+          <nav aria-label="Documentos legais" className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-[#5f8375] dark:text-[#8eaf9f]">
+            <Link to="/termos" className="hover:underline">Termos de Uso</Link>
+            <Link to="/privacidade" className="hover:underline">Privacidade</Link>
+            <Link to="/direitos-autorais" className="hover:underline">Direitos autorais</Link>
+          </nav>
         </section>
       </div>
     </main>

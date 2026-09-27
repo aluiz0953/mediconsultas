@@ -2,6 +2,8 @@ import { type FormEvent, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { apiUrl } from '../lib/api'
 import { VerificationStep } from '../components/VerificationStep'
+import { LegalDialog } from '../components/LegalDialog'
+import type { LegalDocumentKey } from '../lib/legalDocuments'
 import { AddressFields } from '../components/AddressFields'
 import { EMPTY_ADDRESS, serializeAddress, type Address } from '../lib/address'
 
@@ -69,6 +71,8 @@ export function RegisterPage() {
   const [address, setAddress] = useState<Address>(EMPTY_ADDRESS)
   const [doctorForm, setDoctorForm] = useState<DoctorFormState>(INITIAL_DOCTOR_STATE)
   const [step, setStep] = useState<'form' | 'verify'>('form')
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [openDoc, setOpenDoc] = useState<LegalDocumentKey | null>(null)
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -219,6 +223,27 @@ export function RegisterPage() {
             </>
           )}
 
+          <label className="flex items-start gap-2 text-sm text-neutral-600 dark:text-neutral-300">
+            <input
+              type="checkbox"
+              required
+              checked={acceptedTerms}
+              onChange={(event) => setAcceptedTerms(event.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-600"
+            />
+            <span>
+              Li e concordo com os{' '}
+              <button type="button" onClick={() => setOpenDoc('termos')} className="font-medium text-emerald-700 hover:underline dark:text-emerald-400">
+                Termos de Uso
+              </button>{' '}
+              e a{' '}
+              <button type="button" onClick={() => setOpenDoc('privacidade')} className="font-medium text-emerald-700 hover:underline dark:text-emerald-400">
+                Política de Privacidade
+              </button>
+              .
+            </span>
+          </label>
+
           {status === 'error' && (
             <p role="alert" className="text-sm text-red-600 dark:text-red-400">
               {errorMessage}
@@ -235,6 +260,8 @@ export function RegisterPage() {
         </form>
         </>
         )}
+
+        <LegalDialog doc={openDoc} onClose={() => setOpenDoc(null)} />
 
         <p className="mt-6 text-center text-sm text-neutral-500 dark:text-neutral-400">
           Já tem conta?{' '}
