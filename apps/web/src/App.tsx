@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { AndroidBackButton } from './components/AndroidBackButton'
 import { ToastProvider } from './components/ToastProvider'
@@ -10,6 +10,7 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { HomePage } from './pages/HomePage'
 import { LegalPage } from './pages/LegalPage'
+import { NotFoundPage } from './pages/NotFoundPage'
 import { applyTheme, getStoredTheme } from './lib/theme'
 
 // Role-scoped pages are lazy: a given user only ever loads the 1-3 chunks
@@ -185,7 +186,7 @@ function App() {
           </Route>
         </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
       </ToastProvider>
     </BrowserRouter>
