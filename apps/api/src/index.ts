@@ -304,7 +304,10 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
 });
 
 const port = process.env.PORT ?? 8000;
-const server = app.listen(port, () => console.log(`API listening on :${port}`));
+// HOST=127.0.0.1 keeps the API off the network when a local tunnel/proxy is the only way in.
+const host = process.env.HOST || undefined;
+const onListening = () => console.log(`API listening on ${host ?? ''}:${port}`);
+const server = host ? app.listen(Number(port), host, onListening) : app.listen(port, onListening);
 // Slow-client (slowloris) defence: Node's defaults allow minutes per request.
 // These only bound receiving the request, so long-lived SSE responses are unaffected.
 server.headersTimeout = 15_000;

@@ -1,11 +1,21 @@
 {
   "$schema": "https://developers.cloudflare.com/workers/wrangler/config-schema.json",
   "name": "mediconsultas",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-09-29",
-  // Static site only: the API stays separate (VITE_API_URL is baked in at build time, see docs/security-deployment.md).
   "assets": {
     "directory": "./dist-cloudflare",
     // Unknown paths get index.html so the React router can show its own 404 page.
-    "not_found_handling": "single-page-application"
-  }
+    "not_found_handling": "single-page-application",
+    // Only /api/* runs the Worker (forwarding to the API); everything else is static.
+    "run_worker_first": ["/api/*"]
+  },
+  // The API on the machine that runs the named tunnel (`wrangler vpc service create`, see docs/security-deployment.md).
+  "vpc_services": [
+    {
+      "binding": "API",
+      "service_id": "01a0eb8e-c6ee-78c3-bdac-0f080ecd868e",
+      "remote": true
+    }
+  ]
 }

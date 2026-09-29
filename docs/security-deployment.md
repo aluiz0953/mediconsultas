@@ -45,8 +45,16 @@ Eventos de segurança saem em JSON no stderr (`security.ban`, `security.access-d
 ## Variáveis
 `TRUST_PROXY`, `GEO_ALLOWED_COUNTRIES`, `GEOIP_DB_PATH`, `GEO_TRUST_HEADER`, `GEO_COUNTRY_HEADER`, `BLOCK_VPN`, `VPN_LIST_PATH`, `ACCESS_BYPASS_IPS`, `RATE_LIMIT_DISABLED` e `ABUSE_GUARD_DISABLED` (as duas últimas só para testes).
 
-## Deploy no Cloudflare (site) com a API por túnel
-- **Site** (estático, Workers com assets): `VITE_API_URL=https://<endereço-da-api> npm run deploy:cloudflare -w apps/web`. O endereço é `https://mediconsultas.<sua-conta>.workers.dev`; as regras de rota desconhecida (página 404 do app) e os cabeçalhos ficam em `apps/web/wrangler.jsonc` e `apps/web/public/_headers`.
-- **API**: `NODE_ENV=production TRUST_PROXY=1 GEO_TRUST_HEADER=true EXPOSE_VERIFICATION_CODE=false CORS_ORIGINS=http://localhost,https://mediconsultas.<sua-conta>.workers.dev node dist/index.js`, exposta por `cloudflared tunnel --url http://localhost:8000`.
-- O endereço do túnel rápido (`trycloudflare.com`) **muda a cada reinício**: refaça o deploy do site com o novo `VITE_API_URL` e o `CORS_ORIGINS` não precisa mudar. Para um endereço fixo, use um túnel nomeado com um domínio no Cloudflare.
-- O banco continua sendo o Postgres local (o Cloudflare não hospeda Postgres; o D1 é SQLite).
+## Deploy no Cloudflare: site + API no mesmo endereço, API por túnel nomeado
+Um único Worker (`apps/web/worker/index.ts`) serve o site estático e repassa `/api/*` para a API por um **Cloudflare Tunnel** (serviço VPC do Workers). Resultado: um endereço fixo (`https://mediconsultas.<sua-conta>.workers.dev`), sem CORS e com a API **fora da internet** (só o Worker chega nela). O Worker é o único que preenche `X-Forwarded-For` (IP real) e `X-Client-Country` (país do Cloudflare), sempre sobrescrevendo o que o cliente enviar.
+
+**Uma vez** (já feito): `wrangler tunnel create mediconsultas-api` e `wrangler vpc service create mediconsultas-api --type http --tunnel-id <id-do-túnel> --ipv4 127.0.0.1 --http-port 8000`; o id do serviço fica em `apps/web/wrangler.jsonc`.
+
+**Na máquina que hospeda a API** (precisa ficar ligada):
+1. API: `NODE_ENV=production HOST=127.0.0.1 TRUST_PROXY=1 GEO_TRUST_HEADER=true GEO_COUNTRY_HEADER=x-client-country EXPOSE_VERIFICATION_CODE=false CORS_ORIGINS=http://localhost node dist/index.js` (`CORS_ORIGINS` só serve ao app Android, cuja origem é `http://localhost`).
+2. Túnel: `wrangler tunnel run <id-do-túnel>` (usa o `cloudflared`).
+
+**Publicar o site**: `npm run deploy:cloudflare -w apps/web` (sem `VITE_API_URL`: as chamadas são do mesmo endereço).
+**App Android**: `VITE_API_URL=https://mediconsultas.<sua-conta>.workers.dev` em `apps/web/.env.android.local` e `npm run build:android -w apps/web`.
+
+Limites: o banco (Postgres) e a API continuam na máquina local, então ela precisa estar ligada. Sem e-mail/SMS o cadastro de paciente não conclui em produção (o código de verificação não é exibido).
