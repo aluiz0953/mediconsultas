@@ -148,3 +148,15 @@ test('rejects admin requests without a valid token', async () => {
     server.close();
   }
 });
+
+test('approve/reject answer 404 (not 500) for a malformed doctor id', async () => {
+  const { server, base } = await startServer(buildApp());
+  try {
+    const approve = await post(`${base}/admin/doctors/not-a-uuid/approve`, {});
+    assert.equal(approve.status, 404);
+    const reject = await post(`${base}/admin/doctors/not-a-uuid/reject`, { reason: 'x' });
+    assert.equal(reject.status, 404);
+  } finally {
+    server.close();
+  }
+});

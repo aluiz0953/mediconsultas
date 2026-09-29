@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiFetch, ApiError, apiUrl } from '../../lib/api'
-import { getToken } from '../../lib/auth'
+import { apiFetch, ApiError, subscribeAppointmentEvents } from '../../lib/api'
 import { PageHeader } from '../../components/PageHeader'
 import { QueueToggle, type QueueStatus } from '../../components/QueueToggle'
 import { StatusBadge } from '../../components/StatusBadge'
@@ -56,11 +55,7 @@ export function QueuePage() {
   // Real-time: the secretary confirming/cancelling an appointment updates
   // this queue instantly, without the doctor needing to refresh manually.
   useEffect(() => {
-    const token = getToken()
-    if (!token) return
-    const source = new EventSource(apiUrl(`/api/v1/appointments/events?token=${encodeURIComponent(token)}`))
-    source.onmessage = () => load()
-    return () => source.close()
+    return subscribeAppointmentEvents(() => load())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date])
 

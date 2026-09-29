@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { isUuid } from '../validation/uuid.js';
 import type { DoctorRepository } from '../repositories/doctor-repository.js';
 import type { AuditEventRepository } from '../repositories/audit-event-repository.js';
 
@@ -24,6 +25,10 @@ export function adminDoctorsRouter(config: AdminDoctorsRouterConfig): Router {
   });
 
   router.post('/:doctorId/approve', async (req, res) => {
+    if (!isUuid(req.params.doctorId)) {
+      res.status(404).json({ code: 'DOCTOR_NOT_FOUND', message: 'Médico não encontrado.' });
+      return;
+    }
     const updated = await config.repository.updateApproval(req.params.doctorId, {
       approvalStatus: 'APPROVED',
       approvalReason: null,
@@ -51,6 +56,10 @@ export function adminDoctorsRouter(config: AdminDoctorsRouterConfig): Router {
   });
 
   router.post('/:doctorId/reject', async (req, res) => {
+    if (!isUuid(req.params.doctorId)) {
+      res.status(404).json({ code: 'DOCTOR_NOT_FOUND', message: 'Médico não encontrado.' });
+      return;
+    }
     const { reason } = req.body ?? {};
     if (typeof reason !== 'string' || !reason.trim()) {
       res.status(400).json({ code: 'REASON_REQUIRED', message: 'Justificativa é obrigatória para rejeitar.' });

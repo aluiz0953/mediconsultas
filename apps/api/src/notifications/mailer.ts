@@ -5,5 +5,7 @@
 export type SendPasswordResetLink = (params: { email: string; token: string; purpose: 'reset' | 'invite' }) => void;
 
 export const consoleMailer: SendPasswordResetLink = ({ email, token, purpose }) => {
-  console.log(`[mailer stub] ${purpose} link for ${email}: /reset-password?token=${token}`);
+  // Never print a live token in production logs.
+  const link = process.env.NODE_ENV === 'production' ? '[redacted]' : `/reset-password?token=${token}`;
+  console.log(`[mailer stub] ${purpose} link for ${email}: ${link}`);
 };

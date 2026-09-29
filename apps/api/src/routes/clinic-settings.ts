@@ -3,6 +3,12 @@ import type { ClinicSettingsRepository } from '../repositories/clinic-settings-r
 
 const ALLOWED_CONTENT_TYPES = new Set(['image/png', 'image/jpeg']);
 const MAX_LOGO_BYTES = 2 * 1024 * 1024; // 2MB decoded
+const STRICT_BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const SIGNATURES: Record<string, (bytes: Buffer) => boolean> = {
+  'image/png': (bytes) => bytes.subarray(0, 8).equals(PNG_SIGNATURE),
+  'image/jpeg': (bytes) => bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff,
+};
 
 export interface ClinicSettingsRouterConfig {
   repository: ClinicSettingsRepository;
@@ -43,6 +49,12 @@ export function clinicSettingsRouter(config: ClinicSettingsRouterConfig): Router
     }
     if (decodedLength === 0 || decodedLength > MAX_LOGO_BYTES) {
       res.status(400).json({ code: 'IMAGE_TOO_LARGE', message: 'A logo deve ter no máximo 2MB.' });
+      return;
+    }
+    // The declared type is only a claim: check the bytes really are that image.
+    const bytes = Buffer.from(logo_base64, 'base64');
+    if (!STRICT_BASE64.test(logo_base64.trim()) || !SIGNATURES[content_type](bytes)) {
+      res.status(400).json({ code: 'INVALID_IMAGE', message: 'O arquivo enviado não é uma imagem PNG ou JPEG válida.' });
       return;
     }
 

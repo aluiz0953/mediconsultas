@@ -10,7 +10,8 @@ import { signSession } from '../auth/token.js';
 const JWT_SECRET = 'test-jwt-secret';
 const SECRETARY_TOKEN = signSession({ sub: 'sec-1', role: 'SECRETARY' }, JWT_SECRET);
 const authHeaders = { authorization: `Bearer ${SECRETARY_TOKEN}` };
-const TINY_PNG_BASE64 = Buffer.from('a tiny fake png').toString('base64');
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const TINY_PNG_BASE64 = Buffer.concat([PNG_SIGNATURE, Buffer.from('tiny')]).toString('base64');
 
 function buildApp() {
   const repository = new InMemoryClinicSettingsRepository();
@@ -103,6 +104,24 @@ test('rejects requests without a secretary/admin token', async () => {
     const patientToken = signSession({ sub: 'pat-1', role: 'PATIENT' }, JWT_SECRET);
     const wrongRole = await fetch(base, { headers: { authorization: `Bearer ${patientToken}` } });
     assert.equal(wrongRole.status, 403);
+  } finally {
+    server.close();
+  }
+});
+
+test('rejects bytes that are not the declared image type', async () => {
+  const { server, base } = await startServer(buildApp().app);
+  try {
+    const notAnImage = Buffer.from('<svg onload=alert(1)>').toString('base64');
+    const asPng = await put(`${base}/logo`, { logo_base64: notAnImage, content_type: 'image/png' });
+    assert.equal(asPng.status, 400);
+    assert.equal((await json(asPng)).code, 'INVALID_IMAGE');
+
+    const pngAsJpeg = await put(`${base}/logo`, { logo_base64: TINY_PNG_BASE64, content_type: 'image/jpeg' });
+    assert.equal(pngAsJpeg.status, 400);
+
+    const junkChars = await put(`${base}/logo`, { logo_base64: `${TINY_PNG_BASE64}!!<>`, content_type: 'image/png' });
+    assert.equal(junkChars.status, 400);
   } finally {
     server.close();
   }

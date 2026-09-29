@@ -1,7 +1,6 @@
 import { useSearchParams } from 'react-router-dom'
 import { type FormEvent, useEffect, useState } from 'react'
-import { apiFetch, ApiError, apiUrl } from '../../lib/api'
-import { getToken } from '../../lib/auth'
+import { apiFetch, ApiError, subscribeAppointmentEvents } from '../../lib/api'
 import { PageHeader } from '../../components/PageHeader'
 import { StatusBadge } from '../../components/StatusBadge'
 import { APPOINTMENT_STATUS_LABELS } from '../../lib/appointmentStatus'
@@ -83,11 +82,7 @@ export function SchedulePage() {
   // Real-time: refresh the agenda whenever any appointment changes (created,
   // confirmed, cancelled, or started by a doctor), no manual refresh needed.
   useEffect(() => {
-    const token = getToken()
-    if (!token) return
-    const source = new EventSource(apiUrl(`/api/v1/appointments/events?token=${encodeURIComponent(token)}`))
-    source.onmessage = () => loadAgenda()
-    return () => source.close()
+    return subscribeAppointmentEvents(() => loadAgenda())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date])
 

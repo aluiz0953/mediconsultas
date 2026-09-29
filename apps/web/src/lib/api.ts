@@ -44,6 +44,44 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   return response.json() as Promise<T>
 }
 
+// Live agenda/queue updates. EventSource can't send headers, so each connection
+// carries a 30 s single-purpose ticket in its URL (never the session token).
+// After a drop the browser would retry the same URL with a stale ticket, so on
+// error we close and reconnect with a fresh one.
+export function subscribeAppointmentEvents(onChange: () => void): () => void {
+  if (!getToken()) return () => {}
+  let source: EventSource | null = null
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let closed = false
+
+  function retry() {
+    if (!closed) timer = setTimeout(connect, 3000)
+  }
+
+  async function connect() {
+    try {
+      const { ticket } = await apiFetch<{ ticket: string }>('/api/v1/appointments/events/ticket', { method: 'POST' })
+      if (closed) return
+      source = new EventSource(apiUrl(`/api/v1/appointments/events?ticket=${encodeURIComponent(ticket)}`))
+      source.onmessage = onChange
+      source.onerror = () => {
+        source?.close()
+        source = null
+        retry()
+      }
+    } catch {
+      retry()
+    }
+  }
+
+  connect()
+  return () => {
+    closed = true
+    clearTimeout(timer)
+    source?.close()
+  }
+}
+
 // RF-09: PDF endpoints need the same Bearer auth as apiFetch, so a plain
 // <a href> won't work — fetch as a blob and open that instead.
 export async function openPdf(path: string): Promise<void> {

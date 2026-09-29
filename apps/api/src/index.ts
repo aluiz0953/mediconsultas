@@ -5,7 +5,8 @@ import 'dotenv/config';
 import 'express-async-errors';
 import express from 'express';
 import { pool } from './db.js';
-import { requireAuth, requireAuthFromHeaderOrQuery, requireRole } from './auth/middleware.js';
+import { applySecurity, assertProductionSafe } from './security.js';
+import { requireAuth, requireSseTicket, requireRole } from './auth/middleware.js';
 import { authRouter } from './routes/auth.js';
 import { accountRouter } from './routes/account.js';
 import { patientsRouter } from './routes/patients.js';
@@ -23,7 +24,7 @@ import { adminAuditRouter } from './routes/admin-audit.js';
 import { secretaryAppointmentsRouter } from './routes/secretary-appointments.js';
 import { secretaryScheduleBlocksRouter } from './routes/secretary-schedule-blocks.js';
 import { doctorAppointmentsRouter } from './routes/doctor-appointments.js';
-import { appointmentEventsRouter } from './routes/appointment-events-sse.js';
+import { appointmentEventsRouter, appointmentEventTicketRouter } from './routes/appointment-events-sse.js';
 import { clinicalRecordsRouter } from './routes/clinical-records.js';
 import { prescriptionsRouter } from './routes/prescriptions.js';
 import { clinicSettingsRouter } from './routes/clinic-settings.js';
@@ -56,6 +57,8 @@ const LICENSE_HMAC_SECRET = requireEnv('LICENSE_HMAC_SECRET');
 const FIELD_ENCRYPTION_KEY = requireEnv('FIELD_ENCRYPTION_KEY');
 const RESET_TOKEN_HMAC_SECRET = requireEnv('RESET_TOKEN_HMAC_SECRET');
 
+assertProductionSafe();
+
 const app = express();
 
 // The Android app (Capacitor WebView, origin http://localhost) calls the API
@@ -75,6 +78,8 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+applySecurity(app);
 
 // Default 100kb is too small for a base64-encoded clinic logo (up to 2MB
 // decoded, enforced in clinic-settings.ts) — raised app-wide rather than
@@ -205,8 +210,14 @@ app.use(
   doctorAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository, cpfHmacSecret: CPF_HMAC_SECRET }),
 );
 app.use(
+  '/api/v1/appointments/events/ticket',
+  requireAuth(JWT_SECRET),
+  requireRole('DOCTOR', 'SECRETARY', 'ADMIN'),
+  appointmentEventTicketRouter(JWT_SECRET),
+);
+app.use(
   '/api/v1/appointments/events',
-  requireAuthFromHeaderOrQuery(JWT_SECRET),
+  requireSseTicket(JWT_SECRET),
   requireRole('DOCTOR', 'SECRETARY', 'ADMIN'),
   appointmentEventsRouter(),
 );

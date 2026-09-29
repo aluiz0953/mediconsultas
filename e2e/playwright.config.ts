@@ -41,6 +41,8 @@ export default defineConfig({
           command: 'npm run dev --workspace=apps/api',
           cwd: '..',
           port: 8000,
+          // The suite signs in and registers many accounts from one IP.
+          env: { RATE_LIMIT_DISABLED: 'true' },
           reuseExistingServer: true,
           timeout: 30_000,
         },

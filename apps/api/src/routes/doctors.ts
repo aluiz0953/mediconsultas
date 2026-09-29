@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { isUuid } from '../validation/uuid.js';
 import type { DoctorRepository } from '../repositories/doctor-repository.js';
 import { hashPassword } from '../auth/password.js';
 import { isStrongPassword } from '../validation/password-policy.js';
@@ -92,12 +93,14 @@ export function doctorsRouter(config: DoctorsRouterConfig): Router {
   // path — move behind an authenticated /doctor/approval-status using req.user.sub
   // once a JWT-verification middleware exists.
   router.get('/:doctorId/approval-status', async (req, res) => {
-    const doctor = await config.repository.findById(req.params.doctorId);
+    const doctor = isUuid(req.params.doctorId) ? await config.repository.findById(req.params.doctorId) : undefined;
     if (!doctor) {
       res.status(404).json({ code: 'DOCTOR_NOT_FOUND', message: 'Médico não encontrado.' });
       return;
     }
-    res.json({ status: doctor.approvalStatus, reason: doctor.approvalReason });
+    // Public by id: status only. The rejection reason is private to the
+    // doctor (GET /doctor/me) and admins.
+    res.json({ status: doctor.approvalStatus });
   });
 
   return router;
