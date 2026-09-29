@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { apiFetch, downloadFile, ApiError } from '../../lib/api'
 import { PageHeader } from '../../components/PageHeader'
+import { SkeletonRows } from '../../components/Skeleton'
 
 // The complete, real vocabulary of audit_events.action values recorded across
 // the API — kept in sync manually since there's no single source of truth
@@ -196,7 +197,7 @@ export function AuditLogPage() {
       )}
 
       {loading ? (
-        <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Carregando…</p>
+        <SkeletonRows count={3} className="mt-4" />
       ) : visibleEvents.length === 0 ? (
         <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Nenhum evento encontrado.</p>
       ) : (

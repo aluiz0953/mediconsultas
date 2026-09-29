@@ -41,7 +41,7 @@ import { PgAuditEventRepository } from './repositories/audit-event-repository.js
 import { PgAccountRepository } from './repositories/account-repository.js';
 import { PgPasswordResetRepository } from './repositories/password-reset-repository.js';
 import { PgDoctorScheduleBlockRepository } from './repositories/doctor-schedule-block-repository.js';
-import { PgClinicSettingsRepository } from './repositories/clinic-settings-repository.js';
+import { CachedClinicSettingsRepository, PgClinicSettingsRepository } from './repositories/clinic-settings-repository.js';
 import { consoleMailer } from './notifications/mailer.js';
 
 function requireEnv(name: string): string {
@@ -95,7 +95,7 @@ applyFormHoneypot(app);
 const auditEventRepository = new PgAuditEventRepository(pool);
 const accountRepository = new PgAccountRepository(pool);
 const passwordResetRepository = new PgPasswordResetRepository(pool);
-const clinicSettingsRepository = new PgClinicSettingsRepository(pool);
+const clinicSettingsRepository = new CachedClinicSettingsRepository(new PgClinicSettingsRepository(pool));
 const roleInvitationRepository = new PgRoleInvitationRepository(pool);
 const contactVerificationRepository = new PgContactVerificationRepository(pool);
 const verifyContact = (verificationId: unknown, contact: { email: string; phone?: string | null }) =>

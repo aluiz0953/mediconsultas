@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useState } from 'react'
 import { apiFetch, ApiError } from '../../lib/api'
 import { PageHeader } from '../../components/PageHeader'
 import { getCurrentUser } from '../../lib/auth'
+import { SkeletonRows } from '../../components/Skeleton'
 
 // Reflects the requireRole(...) guards actually mounted in apps/api/src/index.ts —
 // keep this in sync by hand if a route's role guard changes.
@@ -239,7 +240,7 @@ export function AccountsPage() {
         )}
 
         {loading ? (
-          <p className="mt-6 text-sm text-neutral-500 dark:text-neutral-400">Carregando…</p>
+          <SkeletonRows count={3} className="mt-4" />
         ) : accounts.length === 0 ? (
           <p className="mt-6 text-sm text-neutral-500 dark:text-neutral-400">Nenhuma conta encontrada.</p>
         ) : (

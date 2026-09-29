@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { apiFetch, ApiError } from '../../lib/api'
 import { PageHeader } from '../../components/PageHeader'
+import { compressImage } from '../../lib/image'
 
 interface ClinicSettings {
   logo_base64: string | null
@@ -10,7 +11,7 @@ interface ClinicSettings {
 
 const ALLOWED_TYPES = ['image/png', 'image/jpeg']
 
-function readFileAsBase64(file: File): Promise<string> {
+function readFileAsBase64(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => {
@@ -59,10 +60,12 @@ export function ClinicSettingsPage() {
     setStatus('saving')
     setError('')
     try {
-      const logo_base64 = await readFileAsBase64(file)
+      // Downscale before upload: smaller request, smaller stored logo, faster PDFs.
+      const compressed = await compressImage(file)
+      const logo_base64 = await readFileAsBase64(compressed)
       const updated = await apiFetch<ClinicSettings>('/api/v1/clinic-settings/logo', {
         method: 'PUT',
-        body: JSON.stringify({ logo_base64, content_type: file.type }),
+        body: JSON.stringify({ logo_base64, content_type: compressed.type || file.type }),
       })
       setSettings(updated)
       setStatus('saved')

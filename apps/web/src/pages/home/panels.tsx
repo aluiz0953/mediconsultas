@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { StatusBadge } from '../../components/StatusBadge'
 import { ArrowRightIcon, CheckCircleIcon } from '../../components/icons'
 import type { Notice } from './format'
+import { SkeletonRows } from '../../components/Skeleton'
 
 const NOTICE_TONE = {
   amber: 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
@@ -26,7 +27,7 @@ export function NoticeList({ notices, loading }: { notices: Notice[]; loading: b
         Avisos
       </h2>
       {loading ? (
-        <p className="p-5 text-sm text-neutral-500 dark:text-neutral-400">Carregando…</p>
+        <SkeletonRows count={3} className="p-5" />
       ) : notices.length === 0 ? (
         <p className="flex items-center gap-2 p-5 text-sm text-neutral-600 dark:text-neutral-300">
           <CheckCircleIcon className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
@@ -86,7 +87,7 @@ export function AppointmentPanel({
         )}
       </div>
       {loading ? (
-        <p className="p-5 text-sm text-neutral-500 dark:text-neutral-400">Carregando…</p>
+        <SkeletonRows count={3} className="p-5" />
       ) : children.length === 0 ? (
         <p className="p-5 text-sm text-neutral-500 dark:text-neutral-400">{empty}</p>
       ) : (
