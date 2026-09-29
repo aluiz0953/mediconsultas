@@ -58,3 +58,15 @@ Um único Worker (`apps/web/worker/index.ts`) serve o site estático e repassa `
 **App Android**: `VITE_API_URL=https://mediconsultas.<sua-conta>.workers.dev` em `apps/web/.env.android.local` e `npm run build:android -w apps/web`.
 
 Limites: o banco (Postgres) e a API continuam na máquina local, então ela precisa estar ligada. Sem e-mail/SMS o cadastro de paciente não conclui em produção (o código de verificação não é exibido).
+
+## Banco de dados no Supabase (Postgres gerenciado)
+Os scripts ficam em `apps/api/scripts/` e leem só variáveis de ambiente (arquivo `apps/api/.env.supabase`, ignorado pelo git; **valores com `#` precisam de aspas**). Rode `npm run build -w apps/api` antes.
+
+1. **Projeto**: região South America (São Paulo), senha forte gerada ao acaso. Em *Connect*, copie a URL do **Session pooler** (funciona em IPv4) para `DATABASE_URL`, **sem** `?sslmode=`. Baixe o certificado em *Settings → Database → SSL Configuration*, aponte `DATABASE_SSL_CA_PATH` para ele e ligue **Enforce SSL**.
+2. **Esquema**: `node --env-file=apps/api/.env.supabase apps/api/scripts/migrate.mjs` (aplica as migrations uma vez cada; recusa banco que já tem tabelas sem histórico).
+3. **Primeiro administrador**: `ADMIN_EMAIL=... ADMIN_PASSWORD=... node --env-file=... apps/api/scripts/create-admin.mjs` (política de senha do app; contas ADMIN/SECRETARY só nascem por convite).
+4. **Endurecimento**: `APP_DB_USER=mediconsultas_app APP_DB_PASSWORD=<24+ caracteres> node --env-file=... apps/api/scripts/harden.mjs`. Liga RLS em todas as tabelas com uma política só para o papel da API (a Data API do Supabase, com `anon`/`authenticated`, não enxerga nada mesmo que uma chave vaze), cria esse papel sem superusuário/DDL/`BYPASSRLS` (só SELECT/INSERT/UPDATE/DELETE; `audit_events` só SELECT/INSERT, então o log de auditoria não é apagável nem editável), com limite de conexões e timeouts, e revoga o acesso padrão de `PUBLIC`/`anon`/`authenticated`.
+5. **A API passa a usar o papel restrito**: no pooler o usuário é `mediconsultas_app.<ref-do-projeto>`. Migrations e `harden` continuam sendo executados com o dono (`postgres`), nunca pela API.
+6. **No painel**: desative a Data API se não for usada, restrinja IPs (Network Restrictions) quando o plano permitir, confira *Advisors → Security* (deve ficar sem alertas) e lembre que o plano gratuito não tem backup pontual.
+
+Perder a `FIELD_ENCRYPTION_KEY` (criptografia de CPF e dados sensíveis) significa perder esses dados: guarde uma cópia fora do repositório.

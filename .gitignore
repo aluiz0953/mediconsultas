@@ -9,3 +9,7 @@ dist/
 
 # downloaded IP lists / GeoIP databases (regenerated at deploy)
 apps/api/data/
+
+# environment files with real secrets (only the *.example templates are versioned)
+.env.*
+!.env.example
