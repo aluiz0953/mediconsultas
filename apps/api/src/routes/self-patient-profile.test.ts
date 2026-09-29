@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import type { AddressInfo } from 'node:net';
 import express from 'express';
 import { selfPatientProfileRouter } from './self-patient-profile.js';
-import { InMemoryAccountRepository } from '../repositories/account-repository.js';
+import { InMemoryAccountRepository } from '../repositories/account-repository.memory.js';
 import { InMemoryPatientRepository } from '../repositories/patient-repository.js';
 import { requireAuth } from '../auth/middleware.js';
 import { signSession } from '../auth/token.js';
