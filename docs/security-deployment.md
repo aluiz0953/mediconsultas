@@ -44,3 +44,9 @@ Eventos de segurança saem em JSON no stderr (`security.ban`, `security.access-d
 
 ## Variáveis
 `TRUST_PROXY`, `GEO_ALLOWED_COUNTRIES`, `GEOIP_DB_PATH`, `GEO_TRUST_HEADER`, `GEO_COUNTRY_HEADER`, `BLOCK_VPN`, `VPN_LIST_PATH`, `ACCESS_BYPASS_IPS`, `RATE_LIMIT_DISABLED` e `ABUSE_GUARD_DISABLED` (as duas últimas só para testes).
+
+## Deploy no Cloudflare (site) com a API por túnel
+- **Site** (estático, Workers com assets): `VITE_API_URL=https://<endereço-da-api> npm run deploy:cloudflare -w apps/web`. O endereço é `https://mediconsultas.<sua-conta>.workers.dev`; as regras de rota desconhecida (página 404 do app) e os cabeçalhos ficam em `apps/web/wrangler.jsonc` e `apps/web/public/_headers`.
+- **API**: `NODE_ENV=production TRUST_PROXY=1 GEO_TRUST_HEADER=true EXPOSE_VERIFICATION_CODE=false CORS_ORIGINS=http://localhost,https://mediconsultas.<sua-conta>.workers.dev node dist/index.js`, exposta por `cloudflared tunnel --url http://localhost:8000`.
+- O endereço do túnel rápido (`trycloudflare.com`) **muda a cada reinício**: refaça o deploy do site com o novo `VITE_API_URL` e o `CORS_ORIGINS` não precisa mudar. Para um endereço fixo, use um túnel nomeado com um domínio no Cloudflare.
+- O banco continua sendo o Postgres local (o Cloudflare não hospeda Postgres; o D1 é SQLite).
