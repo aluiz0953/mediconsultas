@@ -35,6 +35,8 @@ export interface PatientRepository {
   existsByEmailOrCpfHash(email: string, cpfHash: string): Promise<boolean>;
   create(record: NewPatientRecord): Promise<PatientRecord>;
   findById(id: string): Promise<PatientRecord | undefined>;
+  // One round trip for many ids (avoids an N+1 when enriching lists).
+  findByIds(ids: string[]): Promise<Map<string, PatientRecord>>;
   search(query: string): Promise<PatientRecord[]>;
   updateProfile(id: string, update: PatientProfileUpdate): Promise<PatientRecord | undefined>;
 }
@@ -67,6 +69,15 @@ export class InMemoryPatientRepository implements PatientRepository {
     return this.byId.get(id);
   }
 
+  async findByIds(ids: string[]): Promise<Map<string, PatientRecord>> {
+    const found = new Map<string, PatientRecord>();
+    for (const id of new Set(ids)) {
+      const record = this.byId.get(id);
+      if (record) found.set(id, record);
+    }
+    return found;
+  }
+
   async addProfileToExistingUser(userId: string, profile: ExistingUserPatientProfile): Promise<void> {
     const record: PatientRecord = { ...profile, id: userId, email: '', passwordHash: '', status: 'ACTIVE', createdAt: new Date() };
     this.byId.set(userId, record);
@@ -90,6 +101,27 @@ export class InMemoryPatientRepository implements PatientRepository {
 }
 
 // users + user_roles + patient_profiles (migrations/001_init.sql) written as one transaction.
+const PATIENT_SELECT = `SELECT u.id, u.email, u.password_hash, u.status, u.created_at,
+              p.full_name, p.cpf_ciphertext, p.cpf_hash, p.birth_date, p.phone_ciphertext, p.address_ciphertext
+       FROM users u JOIN patient_profiles p ON p.user_id = u.id`;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapPatientRow(row: any): PatientRecord {
+  return {
+    id: row.id,
+    fullName: row.full_name,
+    email: row.email,
+    passwordHash: row.password_hash,
+    cpfCiphertext: row.cpf_ciphertext,
+    cpfHash: row.cpf_hash,
+    birthDate: row.birth_date instanceof Date ? row.birth_date.toISOString().slice(0, 10) : row.birth_date,
+    phoneCiphertext: row.phone_ciphertext,
+    addressCiphertext: row.address_ciphertext,
+    status: row.status,
+    createdAt: row.created_at,
+  };
+}
+
 export class PgPatientRepository implements PatientRepository {
   constructor(private readonly pool: Pool) {}
 
@@ -137,28 +169,16 @@ export class PgPatientRepository implements PatientRepository {
   }
 
   async findById(id: string): Promise<PatientRecord | undefined> {
-    const result = await this.pool.query(
-      `SELECT u.id, u.email, u.password_hash, u.status, u.created_at,
-              p.full_name, p.cpf_ciphertext, p.cpf_hash, p.birth_date, p.phone_ciphertext, p.address_ciphertext
-       FROM users u JOIN patient_profiles p ON p.user_id = u.id
-       WHERE u.id = $1`,
-      [id],
-    );
+    const result = await this.pool.query(`${PATIENT_SELECT} WHERE u.id = $1`, [id]);
     const row = result.rows[0];
-    if (!row) return undefined;
-    return {
-      id: row.id,
-      fullName: row.full_name,
-      email: row.email,
-      passwordHash: row.password_hash,
-      cpfCiphertext: row.cpf_ciphertext,
-      cpfHash: row.cpf_hash,
-      birthDate: row.birth_date instanceof Date ? row.birth_date.toISOString().slice(0, 10) : row.birth_date,
-      phoneCiphertext: row.phone_ciphertext,
-      addressCiphertext: row.address_ciphertext,
-      status: row.status,
-      createdAt: row.created_at,
-    };
+    return row ? mapPatientRow(row) : undefined;
+  }
+
+  async findByIds(ids: string[]): Promise<Map<string, PatientRecord>> {
+    const unique = [...new Set(ids)];
+    if (unique.length === 0) return new Map();
+    const result = await this.pool.query(`${PATIENT_SELECT} WHERE u.id = ANY($1::uuid[])`, [unique]);
+    return new Map(result.rows.map((row) => [row.id as string, mapPatientRow(row)]));
   }
 
   async search(query: string): Promise<PatientRecord[]> {

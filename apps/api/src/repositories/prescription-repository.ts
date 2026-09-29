@@ -126,15 +126,30 @@ function mapPrescriptionRow(row: Record<string, unknown>, itemRows: Record<strin
 
 async function replaceItems(client: PoolClient, prescriptionId: string, items: PrescriptionItem[]): Promise<void> {
   await client.query(`DELETE FROM prescription_items WHERE prescription_id = $1`, [prescriptionId]);
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    await client.query(
-      `INSERT INTO prescription_items
-         (prescription_id, medication_name, strength, presentation, dosage, frequency, duration, quantity, instructions, sort_order)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-      [prescriptionId, item.medicationName, item.strength, item.presentation, item.dosage, item.frequency, item.duration, item.quantity, item.instructions, i],
-    );
-  }
+  if (items.length === 0) return;
+  // One multi-row INSERT instead of one round trip per item.
+  const columns = 10;
+  const placeholders = items
+    .map((_, row) => `(${Array.from({ length: columns }, (__, col) => `$${row * columns + col + 1}`).join(', ')})`)
+    .join(', ');
+  const values = items.flatMap((item, i) => [
+    prescriptionId,
+    item.medicationName,
+    item.strength,
+    item.presentation,
+    item.dosage,
+    item.frequency,
+    item.duration,
+    item.quantity,
+    item.instructions,
+    i,
+  ]);
+  await client.query(
+    `INSERT INTO prescription_items
+       (prescription_id, medication_name, strength, presentation, dosage, frequency, duration, quantity, instructions, sort_order)
+     VALUES ${placeholders}`,
+    values,
+  );
 }
 
 // prescriptions + prescription_items written as one transaction. Items are

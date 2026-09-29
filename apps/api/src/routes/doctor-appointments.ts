@@ -34,12 +34,8 @@ export function doctorAppointmentsRouter(config: DoctorAppointmentsRouterConfig)
     const searchNameNeedle = searchTerm.toLowerCase();
 
     const appointments = await config.appointmentRepository.listByDoctorAndDateRange(req.user!.sub, from, to);
-    const enriched = await Promise.all(
-      appointments.map(async (appointment) => ({
-        appointment,
-        patient: await config.patientRepository.findById(appointment.patientId),
-      })),
-    );
+    const patients = await config.patientRepository.findByIds(appointments.map((a) => a.patientId));
+    const enriched = appointments.map((appointment) => ({ appointment, patient: patients.get(appointment.patientId) }));
 
     const items = enriched
       .filter(({ appointment, patient }) => {
