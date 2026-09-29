@@ -17,7 +17,8 @@ const VERIFIED_WINDOW_MS = 30 * 60_000;
 // console. Replace with a real provider call (SMTP, Twilio, Zenvia…) when keys exist.
 export type SendVerificationCode = (params: { channel: VerificationChannel; destination: string; code: string }) => void;
 export const consoleCodeSender: SendVerificationCode = ({ channel, destination, code }) => {
-  console.log(`[${channel} stub] verification code for ${destination}: ${code}`);
+  const shown = process.env.NODE_ENV === 'production' ? '[redacted]' : code;
+  console.log(`[${channel} stub] verification code for ${destination}: ${shown}`);
 };
 
 export function normalizeDestination(channel: VerificationChannel, value: string): string | null {

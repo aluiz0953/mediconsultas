@@ -5,6 +5,7 @@ import 'dotenv/config';
 import 'express-async-errors';
 import express from 'express';
 import { pool } from './db.js';
+import { applySecurity, assertProductionSafe } from './security.js';
 import { requireAuth, requireAuthFromHeaderOrQuery, requireRole } from './auth/middleware.js';
 import { authRouter } from './routes/auth.js';
 import { accountRouter } from './routes/account.js';
@@ -56,6 +57,8 @@ const LICENSE_HMAC_SECRET = requireEnv('LICENSE_HMAC_SECRET');
 const FIELD_ENCRYPTION_KEY = requireEnv('FIELD_ENCRYPTION_KEY');
 const RESET_TOKEN_HMAC_SECRET = requireEnv('RESET_TOKEN_HMAC_SECRET');
 
+assertProductionSafe();
+
 const app = express();
 
 // The Android app (Capacitor WebView, origin http://localhost) calls the API
@@ -75,6 +78,8 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+applySecurity(app);
 
 // Default 100kb is too small for a base64-encoded clinic logo (up to 2MB
 // decoded, enforced in clinic-settings.ts) — raised app-wide rather than
