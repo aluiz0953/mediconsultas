@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { apiFetch, ApiError } from '../../lib/api'
 import { PageHeader } from '../../components/PageHeader'
+import { SkeletonRows } from '../../components/Skeleton'
 
 interface PendingDoctor {
   id: string
@@ -72,7 +73,7 @@ export function PendingDoctorsPage() {
       )}
 
       {loading ? (
-        <p className="mt-6 text-sm text-neutral-500 dark:text-neutral-400">Carregando…</p>
+        <SkeletonRows count={3} className="mt-4" />
       ) : doctors.length === 0 ? (
         <p className="mt-6 text-sm text-neutral-500 dark:text-neutral-400">Nenhum médico pendente.</p>
       ) : (

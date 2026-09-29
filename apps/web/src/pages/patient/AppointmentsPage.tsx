@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { apiFetch, ApiError } from '../../lib/api'
 import { PageHeader } from '../../components/PageHeader'
 import { StatusBadge } from '../../components/StatusBadge'
+import { SkeletonRows } from '../../components/Skeleton'
 
 interface PatientAppointment {
   id: string
@@ -50,7 +51,7 @@ export function AppointmentsPage() {
       )}
 
       {loading ? (
-        <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Carregando…</p>
+        <SkeletonRows count={3} className="mt-4" />
       ) : appointments.length === 0 ? (
         <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Você ainda não tem nenhuma consulta.</p>
       ) : (

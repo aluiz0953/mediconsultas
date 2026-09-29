@@ -6,6 +6,7 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { APPOINTMENT_STATUS_LABELS } from '../../lib/appointmentStatus'
 import { toDatetimeLocal } from '../../lib/datetime'
 import { ScheduleBlocks } from './ScheduleBlocks'
+import { SkeletonRows } from '../../components/Skeleton'
 
 interface Doctor {
   id: string
@@ -281,7 +282,7 @@ export function SchedulePage() {
       </div>
 
       {loading ? (
-        <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Carregando…</p>
+        <SkeletonRows count={3} className="mt-4" />
       ) : appointments.length === 0 ? (
         <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Nenhuma consulta nesta data.</p>
       ) : (

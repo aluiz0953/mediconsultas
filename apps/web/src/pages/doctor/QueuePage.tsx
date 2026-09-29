@@ -5,6 +5,7 @@ import { PageHeader } from '../../components/PageHeader'
 import { QueueToggle, type QueueStatus } from '../../components/QueueToggle'
 import { StatusBadge } from '../../components/StatusBadge'
 import { APPOINTMENT_STATUS_LABELS } from '../../lib/appointmentStatus'
+import { SkeletonRows } from '../../components/Skeleton'
 
 interface QueueAppointment {
   id: string
@@ -119,7 +120,7 @@ export function QueuePage() {
       )}
 
       {loading ? (
-        <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Carregando…</p>
+        <SkeletonRows count={3} className="mt-4" />
       ) : appointments.length === 0 ? (
         <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Nenhuma consulta nesta data.</p>
       ) : (

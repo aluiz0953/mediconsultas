@@ -26,6 +26,32 @@ export class InMemoryClinicSettingsRepository implements ClinicSettingsRepositor
   }
 }
 
+// Server-side cache: the settings row holds the logo as base64 (up to ~3 MB) and is
+// read for every generated PDF. Kept in memory and dropped on update; the TTL only
+// bounds staleness if another API instance changes it.
+export class CachedClinicSettingsRepository implements ClinicSettingsRepository {
+  private cached: { value: ClinicSettings; expiresAt: number } | null = null;
+
+  constructor(
+    private readonly inner: ClinicSettingsRepository,
+    private readonly ttlMs = 5 * 60_000,
+  ) {}
+
+  async get(): Promise<ClinicSettings> {
+    const now = Date.now();
+    if (this.cached && this.cached.expiresAt > now) return this.cached.value;
+    const value = await this.inner.get();
+    this.cached = { value, expiresAt: now + this.ttlMs };
+    return value;
+  }
+
+  async updateLogo(logoBase64: string, contentType: string, updatedBy: string | null): Promise<ClinicSettings> {
+    const value = await this.inner.updateLogo(logoBase64, contentType, updatedBy);
+    this.cached = { value, expiresAt: Date.now() + this.ttlMs };
+    return value;
+  }
+}
+
 export class PgClinicSettingsRepository implements ClinicSettingsRepository {
   constructor(private readonly pool: Pool) {}
 
