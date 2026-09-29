@@ -1,9 +1,11 @@
 import { type FormEvent, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiUrl } from '../lib/api'
+import { HoneypotField } from '../components/HoneypotField'
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
+  const [honeypot, setHoneypot] = useState('')
   const [status, setStatus] = useState<'idle' | 'loading' | 'done'>('idle')
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -13,7 +15,7 @@ export function ForgotPasswordPage() {
       await fetch(apiUrl('/api/v1/auth/password-reset/request'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, website: honeypot }),
       })
     } finally {
       // PAT-03: always show the same generic confirmation, whether or not the e-mail exists.
@@ -35,6 +37,7 @@ export function ForgotPasswordPage() {
           </p>
         ) : (
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+            <HoneypotField value={honeypot} onChange={setHoneypot} />
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
                 E-mail

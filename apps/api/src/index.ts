@@ -5,7 +5,8 @@ import 'dotenv/config';
 import 'express-async-errors';
 import express from 'express';
 import { pool } from './db.js';
-import { applySecurity, assertProductionSafe } from './security.js';
+import { applyFormHoneypot, applySecurity, assertProductionSafe } from './security.js';
+import { loadAccessConfig } from './geo.js';
 import { requireAuth, requireSseTicket, requireRole } from './auth/middleware.js';
 import { authRouter } from './routes/auth.js';
 import { accountRouter } from './routes/account.js';
@@ -58,6 +59,7 @@ const FIELD_ENCRYPTION_KEY = requireEnv('FIELD_ENCRYPTION_KEY');
 const RESET_TOKEN_HMAC_SECRET = requireEnv('RESET_TOKEN_HMAC_SECRET');
 
 assertProductionSafe();
+const accessConfig = await loadAccessConfig();
 
 const app = express();
 
@@ -79,13 +81,16 @@ app.use((req, res, next) => {
   next();
 });
 
-applySecurity(app);
+applySecurity(app, accessConfig);
 
-// Default 100kb is too small for a base64-encoded clinic logo (up to 2MB
-// decoded, enforced in clinic-settings.ts) — raised app-wide rather than
-// re-parsing the body per route, since a second express.json() on an
-// already-rejected request never runs (the 100kb limit would fire first).
-app.use(express.json({ limit: '4mb' }));
+// A base64 clinic logo needs up to ~3MB, but every other route is small JSON.
+// Only the logo route gets the big limit, and its parser must be registered
+// first: body-parser skips a request an earlier parser already handled, whereas
+// a larger parser placed after the 100kb one would never run (the small limit
+// would reject the request first).
+app.use('/api/v1/clinic-settings', express.json({ limit: '4mb' }));
+app.use(express.json({ limit: '100kb' }));
+applyFormHoneypot(app);
 
 const auditEventRepository = new PgAuditEventRepository(pool);
 const accountRepository = new PgAccountRepository(pool);
@@ -299,4 +304,10 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
 });
 
 const port = process.env.PORT ?? 8000;
-app.listen(port, () => console.log(`API listening on :${port}`));
+const server = app.listen(port, () => console.log(`API listening on :${port}`));
+// Slow-client (slowloris) defence: Node's defaults allow minutes per request.
+// These only bound receiving the request, so long-lived SSE responses are unaffected.
+server.headersTimeout = 15_000;
+server.requestTimeout = 30_000;
+server.keepAliveTimeout = 5_000;
+server.maxHeadersCount = 50;

@@ -7,7 +7,8 @@
     "dev": "tsx src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "node --import tsx --test src/auth/password.test.ts src/auth/token.test.ts src/validation/cpf.test.ts src/validation/password-policy.test.ts src/validation/brazilian-uf.test.ts src/crypto/hmac.test.ts src/crypto/field-encryption.test.ts src/routes/patients.test.ts src/routes/doctors.test.ts src/routes/admin-doctors.test.ts src/routes/secretary-appointments.test.ts src/routes/doctor-appointments.test.ts src/routes/clinical-records.test.ts src/routes/prescriptions.test.ts src/routes/patient-clinical-records.test.ts src/routes/patient-prescriptions.test.ts src/routes/patient-appointments.test.ts src/routes/admin-audit.test.ts src/routes/patient-profile.test.ts src/routes/doctor-profile.test.ts src/routes/account.test.ts src/routes/auth.test.ts src/routes/admin-accounts.test.ts src/routes/secretary-schedule-blocks.test.ts src/routes/clinic-settings.test.ts src/routes/verifications.test.ts src/routes/self-patient-profile.test.ts src/security.test.ts src/routes/appointment-events-sse.test.ts src/validation/uuid.test.ts"
+    "test": "node --import tsx --test src/auth/password.test.ts src/auth/token.test.ts src/validation/cpf.test.ts src/validation/password-policy.test.ts src/validation/brazilian-uf.test.ts src/crypto/hmac.test.ts src/crypto/field-encryption.test.ts src/routes/patients.test.ts src/routes/doctors.test.ts src/routes/admin-doctors.test.ts src/routes/secretary-appointments.test.ts src/routes/doctor-appointments.test.ts src/routes/clinical-records.test.ts src/routes/prescriptions.test.ts src/routes/patient-clinical-records.test.ts src/routes/patient-prescriptions.test.ts src/routes/patient-appointments.test.ts src/routes/admin-audit.test.ts src/routes/patient-profile.test.ts src/routes/doctor-profile.test.ts src/routes/account.test.ts src/routes/auth.test.ts src/routes/admin-accounts.test.ts src/routes/secretary-schedule-blocks.test.ts src/routes/clinic-settings.test.ts src/routes/verifications.test.ts src/routes/self-patient-profile.test.ts src/security.test.ts src/routes/appointment-events-sse.test.ts src/validation/uuid.test.ts src/ip.test.ts src/abuse.test.ts src/geo.test.ts",
+    "update:vpn-list": "node scripts/update-vpn-list.mjs"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -16,6 +17,7 @@
     "express-async-errors": "^3.1.1",
     "express-rate-limit": "^8.7.0",
     "jsonwebtoken": "^9.0.2",
+    "maxmind": "^5.0.7",
     "pdfkit": "^0.20.2",
     "pg": "^8.12.0"
   },
