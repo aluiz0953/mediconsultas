@@ -12,6 +12,7 @@ import {
   isBiometricAvailable,
   isTokenExpired,
 } from '../lib/biometric'
+import { canRunHeavyEffects, whenIdle } from '../lib/performance'
 import { ArrowRightIcon, EyeIcon, EyeOffIcon, FingerprintIcon, HeartLogo, LockIcon } from '../components/icons'
 
 // three.js is ~900KB; lazy so it never blocks the login form's first paint.
@@ -38,6 +39,9 @@ export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const justRegistered = (location.state as { justRegistered?: 'patient' | 'doctor' } | null)?.justRegistered
+  // Decorative WebGL background: capable desktops only, and only after first paint.
+  const [showHero, setShowHero] = useState(false)
+  useEffect(() => (canRunHeavyEffects() ? whenIdle(() => setShowHero(true)) : undefined), [])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -105,12 +109,14 @@ export function LoginPage() {
 
   return (
     <main
-      style={{ fontFamily: "'DM Sans', sans-serif" }}
+      style={{ fontFamily: "'DM Sans Variable', sans-serif" }}
       className="relative isolate grid min-h-svh place-items-center overflow-hidden bg-[#f1faf6] p-5 text-[#173d30] sm:p-8 lg:p-14 dark:bg-[#0c1c16] dark:text-[#e6f8ef]"
     >
-      <Suspense fallback={null}>
-        <HeroGeometric {...BACKGROUND[getStoredTheme()]} speed={4} className="-z-20" />
-      </Suspense>
+      {showHero && (
+        <Suspense fallback={null}>
+          <HeroGeometric {...BACKGROUND[getStoredTheme()]} speed={4} className="-z-20" />
+        </Suspense>
+      )}
       <div
         aria-hidden="true"
         className="login-orb-one pointer-events-none absolute -top-44 right-[10%] -z-10 h-[430px] w-[430px] rounded-full bg-emerald-500/15 blur-[1px] dark:bg-emerald-500/10"
