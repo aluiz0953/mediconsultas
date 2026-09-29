@@ -13,18 +13,14 @@ export function patientAppointmentsRouter(config: PatientAppointmentsRouterConfi
   // PAT-04: patient_id always comes from the JWT (req.user.sub), never the client.
   router.get('/', async (req, res) => {
     const appointments = await config.appointmentRepository.listByPatientId(req.user!.sub);
-    const items = await Promise.all(
-      appointments.map(async (appointment) => {
-        const doctor = await config.doctorRepository.findById(appointment.doctorId);
-        return {
-          id: appointment.id,
-          doctor: { id: appointment.doctorId, display_name: doctor?.fullName ?? 'Médico removido' },
-          starts_at: appointment.startsAt.toISOString(),
-          ends_at: appointment.endsAt.toISOString(),
-          status: appointment.status,
-        };
-      }),
-    );
+    const doctors = await config.doctorRepository.findByIds(appointments.map((a) => a.doctorId));
+    const items = appointments.map((appointment) => ({
+      id: appointment.id,
+      doctor: { id: appointment.doctorId, display_name: doctors.get(appointment.doctorId)?.fullName ?? 'Médico removido' },
+      starts_at: appointment.startsAt.toISOString(),
+      ends_at: appointment.endsAt.toISOString(),
+      status: appointment.status,
+    }));
     res.json({ items });
   });
 

@@ -51,8 +51,10 @@ export function SchedulePage() {
   const [agendaStatus, setAgendaStatus] = useState('')
 
 
-  async function loadAgenda() {
-    setLoading(true)
+  // `silent` refreshes in the background (after an action or a live event) without
+  // swapping the list for the loading spinner.
+  async function loadAgenda(silent = false) {
+    if (!silent) setLoading(true)
     setError('')
     try {
       const params = new URLSearchParams({ date })
@@ -82,7 +84,7 @@ export function SchedulePage() {
   // Real-time: refresh the agenda whenever any appointment changes (created,
   // confirmed, cancelled, or started by a doctor), no manual refresh needed.
   useEffect(() => {
-    return subscribeAppointmentEvents(() => loadAgenda())
+    return subscribeAppointmentEvents(() => loadAgenda(true))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date])
 
@@ -127,23 +129,22 @@ export function SchedulePage() {
     }
   }
 
-  async function confirm(id: string) {
+  // Optimistic: the new status shows immediately (the server round trip is slow on
+  // mobile networks); if the server refuses, the previous list comes back.
+  async function changeStatus(id: string, action: 'confirm' | 'cancel', status: string, failure: string) {
+    const previous = appointments
+    setAppointments((list) => list.map((appointment) => (appointment.id === id ? { ...appointment, status } : appointment)))
     try {
-      await apiFetch(`/api/v1/secretary/appointments/${id}/confirm`, { method: 'POST' })
-      await loadAgenda()
+      await apiFetch(`/api/v1/secretary/appointments/${id}/${action}`, { method: 'POST' })
+      void loadAgenda(true)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Falha ao confirmar consulta.')
+      setAppointments(previous)
+      setError(err instanceof ApiError ? err.message : failure)
     }
   }
 
-  async function cancel(id: string) {
-    try {
-      await apiFetch(`/api/v1/secretary/appointments/${id}/cancel`, { method: 'POST' })
-      await loadAgenda()
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Falha ao cancelar consulta.')
-    }
-  }
+  const confirm = (id: string) => changeStatus(id, 'confirm', 'CONFIRMED', 'Falha ao confirmar consulta.')
+  const cancel = (id: string) => changeStatus(id, 'cancel', 'CANCELLED', 'Falha ao cancelar consulta.')
 
   return (
     <div>

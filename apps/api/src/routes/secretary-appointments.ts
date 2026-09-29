@@ -61,15 +61,15 @@ export function secretaryAppointmentsRouter(config: SecretaryAppointmentsRouterC
     const searchNameNeedle = searchTerm.toLowerCase();
 
     const appointments = await config.appointmentRepository.listByDateRange(from, to);
-    const enriched = await Promise.all(
-      appointments.map(async (appointment) => {
-        const [patient, doctor] = await Promise.all([
-          config.patientRepository.findById(appointment.patientId),
-          config.doctorRepository.findById(appointment.doctorId),
-        ]);
-        return { appointment, patient, doctor };
-      }),
-    );
+    const [patients, doctors] = await Promise.all([
+      config.patientRepository.findByIds(appointments.map((a) => a.patientId)),
+      config.doctorRepository.findByIds(appointments.map((a) => a.doctorId)),
+    ]);
+    const enriched = appointments.map((appointment) => ({
+      appointment,
+      patient: patients.get(appointment.patientId),
+      doctor: doctors.get(appointment.doctorId),
+    }));
 
     const items = enriched
       .filter(({ appointment, patient }) => {

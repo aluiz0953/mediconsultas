@@ -22,18 +22,17 @@ export function patientPrescriptionsRouter(config: PatientPrescriptionsRouterCon
   router.get('/', async (req, res) => {
     const patientId = req.user!.sub;
     const prescriptions = await config.prescriptionRepository.listFinalizedByPatientId(patientId);
-    const items = await Promise.all(
-      prescriptions.map(async (prescription) => {
-        const doctor = await config.doctorRepository.findById(prescription.doctorId);
-        return {
-          id: prescription.id,
-          version: prescription.version,
-          doctor: doctor ? { id: doctor.id, display_name: doctor.fullName } : null,
-          issued_at: prescription.issuedAt?.toISOString() ?? null,
-          no_medication_needed: prescription.noMedicationNeeded,
-        };
-      }),
-    );
+    const doctors = await config.doctorRepository.findByIds(prescriptions.map((p) => p.doctorId));
+    const items = prescriptions.map((prescription) => {
+      const doctor = doctors.get(prescription.doctorId);
+      return {
+        id: prescription.id,
+        version: prescription.version,
+        doctor: doctor ? { id: doctor.id, display_name: doctor.fullName } : null,
+        issued_at: prescription.issuedAt?.toISOString() ?? null,
+        no_medication_needed: prescription.noMedicationNeeded,
+      };
+    });
     res.json({ items });
   });
 

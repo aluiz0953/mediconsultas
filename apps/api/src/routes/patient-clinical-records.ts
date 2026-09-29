@@ -24,18 +24,17 @@ export function patientClinicalRecordsRouter(config: PatientClinicalRecordsRoute
   router.get('/', async (req, res) => {
     const patientId = req.user!.sub;
     const records = await config.clinicalRecordRepository.listReleasedByPatientId(patientId);
-    const items = await Promise.all(
-      records.map(async (record) => {
-        const doctor = await config.doctorRepository.findById(record.doctorId);
-        return {
-          id: record.id,
-          version: record.version,
-          doctor: doctor ? { id: doctor.id, display_name: doctor.fullName } : null,
-          finalized_at: record.finalizedAt?.toISOString() ?? null,
-          released_at: record.releasedAt?.toISOString() ?? null,
-        };
-      }),
-    );
+    const doctors = await config.doctorRepository.findByIds(records.map((r) => r.doctorId));
+    const items = records.map((record) => {
+      const doctor = doctors.get(record.doctorId);
+      return {
+        id: record.id,
+        version: record.version,
+        doctor: doctor ? { id: doctor.id, display_name: doctor.fullName } : null,
+        finalized_at: record.finalizedAt?.toISOString() ?? null,
+        released_at: record.releasedAt?.toISOString() ?? null,
+      };
+    });
     res.json({ items });
   });
 

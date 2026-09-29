@@ -1,4 +1,5 @@
 import type { Express, Request, RequestHandler, Response } from 'express';
+import compression from 'compression';
 import rateLimit, { type Options } from 'express-rate-limit';
 import { applyHoneypotRoutes, banGuard, clientIp, formHoneypot, strike } from './abuse.js';
 import { accessPolicy, type AccessConfig } from './geo.js';
@@ -73,6 +74,14 @@ export function applySecurity(app: Express, access?: AccessConfig): void {
   if (access) app.use(accessPolicy(access));
   applyHoneypotRoutes(app);
   app.use(securityHeaders);
+  // Gzip JSON responses (>1 kB): far fewer bytes over mobile networks. Event streams
+  // must stay unbuffered, so they are excluded.
+  app.use(
+    compression({
+      threshold: 1024,
+      filter: (req, res) => !String(res.getHeader('Content-Type') ?? '').includes('text/event-stream') && compression.filter(req, res),
+    }),
+  );
   app.use('/api', apiLimiter);
   app.use('/api/v1/auth/login', loginLimiter);
   app.use(PUBLIC_FORM_PATHS, abuseLimiter);

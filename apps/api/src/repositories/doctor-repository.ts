@@ -45,6 +45,8 @@ export interface DoctorRepository {
   existsByEmailOrLicenseHash(email: string, licenseHash: string): Promise<boolean>;
   create(record: NewDoctorRecord): Promise<DoctorRecord>;
   findById(id: string): Promise<DoctorRecord | undefined>;
+  // One round trip for many ids (avoids an N+1 when enriching lists).
+  findByIds(ids: string[]): Promise<Map<string, DoctorRecord>>;
   listPending(): Promise<DoctorRecord[]>;
   listApproved(): Promise<DoctorRecord[]>;
   updateApproval(id: string, update: ApprovalUpdate): Promise<DoctorRecord | undefined>;
@@ -83,6 +85,15 @@ export class InMemoryDoctorRepository implements DoctorRepository {
 
   async findById(id: string): Promise<DoctorRecord | undefined> {
     return this.byId.get(id);
+  }
+
+  async findByIds(ids: string[]): Promise<Map<string, DoctorRecord>> {
+    const found = new Map<string, DoctorRecord>();
+    for (const id of new Set(ids)) {
+      const record = this.byId.get(id);
+      if (record) found.set(id, record);
+    }
+    return found;
   }
 
   async listPending(): Promise<DoctorRecord[]> {
@@ -211,6 +222,13 @@ export class PgDoctorRepository implements DoctorRepository {
     const result = await this.pool.query(`${DOCTOR_SELECT} WHERE u.id = $1`, [id]);
     const row = result.rows[0];
     return row ? mapDoctorRow(row) : undefined;
+  }
+
+  async findByIds(ids: string[]): Promise<Map<string, DoctorRecord>> {
+    const unique = [...new Set(ids)];
+    if (unique.length === 0) return new Map();
+    const result = await this.pool.query(`${DOCTOR_SELECT} WHERE u.id = ANY($1::uuid[])`, [unique]);
+    return new Map(result.rows.map((row) => [row.id as string, mapDoctorRow(row)]));
   }
 
   async listPending(): Promise<DoctorRecord[]> {

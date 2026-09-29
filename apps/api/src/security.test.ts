@@ -52,3 +52,26 @@ test('refuses EXPOSE_VERIFICATION_CODE in production', () => {
     process.env = saved;
   }
 });
+
+test('compresses large JSON responses but never event streams', async () => {
+  const app = express();
+  applySecurity(app);
+  app.get('/api/v1/big', (_req, res) => res.json({ items: Array.from({ length: 200 }, (_, i) => ({ id: i, name: 'x'.repeat(20) })) }));
+  app.get('/api/v1/small', (_req, res) => res.json({ ok: true }));
+  app.get('/api/v1/stream', (_req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.write('data: hello\n\n'.repeat(200));
+    res.end();
+  });
+  const server = app.listen(0);
+  try {
+    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const headers = { 'accept-encoding': 'gzip' };
+    assert.equal((await fetch(`${base}/api/v1/big`, { headers })).headers.get('content-encoding'), 'gzip');
+    assert.equal((await fetch(`${base}/api/v1/small`, { headers })).headers.get('content-encoding'), null);
+    assert.equal((await fetch(`${base}/api/v1/stream`, { headers })).headers.get('content-encoding'), null);
+  } finally {
+    server.close();
+  }
+});
+
