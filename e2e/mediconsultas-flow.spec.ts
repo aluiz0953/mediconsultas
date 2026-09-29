@@ -141,9 +141,10 @@ test.describe.serial('MediConsultas — ciclo completo ponta a ponta', () => {
     // htmlFor/id, no wrapping), so getByLabel can't see it either — same
     // reason fieldByLabel() exists; this inlines that pattern pre-scoped.
     await page
-      .locator('form:has(button:has-text("Agendar consulta")) div:has(> label:has-text("Médico")) select')
+      .locator('form:has(button[aria-label="Deslize para agendar"]) div:has(> label:has-text("Médico")) select')
       .selectOption(doctor.id);
-    await page.getByRole('button', { name: 'Agendar consulta' }).click();
+    // The slide-to-confirm handle also confirms with the keyboard (Enter/Space).
+    await page.getByRole('button', { name: 'Deslize para agendar' }).press('Enter');
 
     const appointmentRow = page.locator('li', { hasText: patient.fullName });
     await expect(appointmentRow).toBeVisible();
