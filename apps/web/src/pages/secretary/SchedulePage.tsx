@@ -7,7 +7,7 @@ import { toDatetimeLocal } from '../../lib/datetime'
 import { AppointmentRow, type Appointment } from './AppointmentRow'
 import { ScheduleBlocks } from './ScheduleBlocks'
 import { SkeletonRows } from '../../components/Skeleton'
-import { SlideConfirm } from '../../components/SlideConfirm'
+import { ConfirmAction } from '../../components/ConfirmAction'
 import { useToast } from '../../components/ToastProvider'
 
 interface Doctor {
@@ -97,7 +97,7 @@ export function SchedulePage() {
     return () => clearTimeout(timeout)
   }, [patientQuery])
 
-  // Returns whether the appointment was created, so the slide-to-confirm control knows
+  // Returns whether the appointment was created, so the confirm control knows
   // whether to show "done" or spring back.
   async function handleSchedule(): Promise<boolean> {
     setError('')
@@ -161,7 +161,7 @@ export function SchedulePage() {
       )}
 
       <form
-        // Scheduling happens through the slide-to-confirm control, never by pressing Enter in a field.
+        // Scheduling happens through the confirm control (slider on Android, button on web), never by pressing Enter in a field.
         onSubmit={(event) => event.preventDefault()}
         className="mt-6 grid gap-4 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900 sm:grid-cols-2"
       >
@@ -244,8 +244,9 @@ export function SchedulePage() {
         </div>
 
         <div className="sm:col-span-2">
-          <SlideConfirm
+          <ConfirmAction
             label="Deslize para agendar"
+            buttonLabel="Agendar consulta"
             busyLabel="Agendando…"
             doneLabel="Consulta marcada"
             disabled={!selectedPatient || !selectedDoctorId}
