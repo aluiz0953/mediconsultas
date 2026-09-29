@@ -1,5 +1,5 @@
 import { useSearchParams } from 'react-router-dom'
-import { type FormEvent, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { apiFetch, ApiError, subscribeAppointmentEvents } from '../../lib/api'
 import { PageHeader } from '../../components/PageHeader'
 import { StatusBadge } from '../../components/StatusBadge'
@@ -7,6 +7,7 @@ import { APPOINTMENT_STATUS_LABELS } from '../../lib/appointmentStatus'
 import { toDatetimeLocal } from '../../lib/datetime'
 import { ScheduleBlocks } from './ScheduleBlocks'
 import { SkeletonRows } from '../../components/Skeleton'
+import { SlideConfirm } from '../../components/SlideConfirm'
 
 interface Doctor {
   id: string
@@ -103,12 +104,13 @@ export function SchedulePage() {
     return () => clearTimeout(timeout)
   }, [patientQuery])
 
-  async function handleSchedule(event: FormEvent) {
-    event.preventDefault()
+  // Returns whether the appointment was created, so the slide-to-confirm control knows
+  // whether to show "done" or spring back.
+  async function handleSchedule(): Promise<boolean> {
     setError('')
     if (!selectedPatient || !selectedDoctorId) {
       setError('Selecione um paciente e um médico.')
-      return
+      return false
     }
 
     try {
@@ -125,8 +127,10 @@ export function SchedulePage() {
       setPatientQuery('')
       setSelectedDoctorId('')
       await loadAgenda()
+      return true
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Falha ao agendar consulta.')
+      return false
     }
   }
 
@@ -161,7 +165,8 @@ export function SchedulePage() {
       )}
 
       <form
-        onSubmit={handleSchedule}
+        // Scheduling happens through the slide-to-confirm control, never by pressing Enter in a field.
+        onSubmit={(event) => event.preventDefault()}
         className="mt-6 grid gap-4 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900 sm:grid-cols-2"
       >
         <div className="relative sm:col-span-2">
@@ -243,12 +248,16 @@ export function SchedulePage() {
         </div>
 
         <div className="sm:col-span-2">
-          <button
-            type="submit"
-            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
-          >
-            Agendar consulta
-          </button>
+          <SlideConfirm
+            label="Deslize para agendar"
+            busyLabel="Agendando…"
+            doneLabel="Consulta marcada"
+            disabled={!selectedPatient || !selectedDoctorId}
+            onConfirm={handleSchedule}
+          />
+          {(!selectedPatient || !selectedDoctorId) && (
+            <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Escolha o paciente e o médico para liberar.</p>
+          )}
         </div>
       </form>
 
