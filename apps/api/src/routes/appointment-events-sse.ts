@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { signSseTicket, SSE_TICKET_SECONDS } from '../auth/token.js';
 import { appointmentEvents, type AppointmentChangeEvent } from '../realtime/appointment-events.js';
 
 const HEARTBEAT_MS = 25_000;
@@ -31,5 +32,15 @@ export function appointmentEventsRouter(): Router {
     });
   });
 
+  return router;
+}
+
+// Trades the caller's session (Authorization header) for a stream ticket.
+export function appointmentEventTicketRouter(jwtSecret: string): Router {
+  const router = Router();
+  router.post('/', (req, res) => {
+    const { sub, role } = req.user!;
+    res.json({ ticket: signSseTicket({ sub, role }, jwtSecret), expires_in: SSE_TICKET_SECONDS });
+  });
   return router;
 }
