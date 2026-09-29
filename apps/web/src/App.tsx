@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { AndroidBackButton } from './components/AndroidBackButton'
+import { ToastProvider } from './components/ToastProvider'
 import { ProtectedRoute, PublicOnlyRoute, RequireRole } from './routes/guards'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
@@ -45,6 +46,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <ToastProvider>
       <AndroidBackButton />
       <Routes>
         <Route
@@ -185,6 +187,7 @@ function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </ToastProvider>
     </BrowserRouter>
   )
 }

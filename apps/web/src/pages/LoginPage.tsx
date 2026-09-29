@@ -13,6 +13,8 @@ import {
   isTokenExpired,
 } from '../lib/biometric'
 import { canRunHeavyEffects, whenIdle } from '../lib/performance'
+import FluidOrb from '../components/ui/fluid-orb'
+import { Toggle } from '../components/Toggle'
 import { ArrowRightIcon, EyeIcon, EyeOffIcon, FingerprintIcon, HeartLogo, LockIcon } from '../components/icons'
 
 // three.js is ~900KB; lazy so it never blocks the login form's first paint.
@@ -151,6 +153,9 @@ export function LoginPage() {
                 Uma experiência simples para acompanhar consultas, documentos e tudo o que importa no seu cuidado.
               </p>
             </div>
+            <div className="mt-8 hidden lg:block" aria-hidden="true">
+              <FluidOrb size={132} color="#10b981" />
+            </div>
           </div>
 
           <p className="mt-10 hidden text-xs text-[#5f8375] lg:block dark:text-[#8eaf9f]">© 2026 MediConsultas</p>
@@ -220,15 +225,10 @@ export function LoginPage() {
             </label>
 
             <div className="-mt-0.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-              <label className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm text-[#4f7263] dark:text-[#9cc4b2]">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(event) => setRememberMe(event.target.checked)}
-                  className="h-3.5 w-3.5 accent-emerald-500"
-                />
-                Manter conectado
-              </label>
+              <div className="inline-flex items-center gap-2 whitespace-nowrap text-sm text-[#4f7263] dark:text-[#9cc4b2]">
+                <Toggle checked={rememberMe} onChange={setRememberMe} aria-labelledby="remember-me-label" />
+                <span id="remember-me-label">Manter conectado</span>
+              </div>
               {biometricAvailable && !biometricSaved && (
                 <label className="inline-flex basis-full items-center gap-1.5 text-sm text-[#4f7263] dark:text-[#9cc4b2]">
                   <input

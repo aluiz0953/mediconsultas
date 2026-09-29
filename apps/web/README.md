@@ -30,3 +30,10 @@ If you are developing a production application, we recommend enabling type-aware
 ```
 
 See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+
+## Créditos de componentes de terceiros
+
+- **Fluid Orb** — [Rare UI](https://www.rareui.com) (Swami Malode), licença MIT com Commons Clause e atribuição obrigatória. Código em `src/components/ui/fluid-orb.tsx`; não remova o crédito.
+- **Animated Toast Stack** — [beUI](https://beui.dev) (MIT), instalado pelo registro shadcn em `src/components/motion/`.
+- **Toggle** — animação do [transitions.dev](https://transitions.dev) (`.t-toggle` em `src/index.css`, `src/components/Toggle.tsx`).
+- **Slide to confirm** — comportamento inspirado no bloco *Slide to confirm* do [Bencho](https://bencho.dev); implementação própria.
