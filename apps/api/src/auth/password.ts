@@ -8,7 +8,7 @@ import bcrypt from 'bcrypt';
 // Cost factor 10 (down from 12): there's no deployed prod environment yet —
 // this only ever runs in dev/test — and 10 halves hash time vs. 12 with no
 // real exposure tradeoff at this stage.
-const SALT_ROUNDS = 10;
+const SALT_ROUNDS = 12;
 
 export function hashPassword(plain: string): Promise<string> {
   return bcrypt.hash(plain, SALT_ROUNDS);

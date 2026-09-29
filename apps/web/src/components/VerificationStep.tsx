@@ -9,6 +9,8 @@ interface Props {
   // Creates the account with the confirmed verification; resolves to an error message on failure.
   onVerified: (verificationId: string) => Promise<string | null>
   onBack: () => void
+  // Value of the hidden trap field from the previous step (see HoneypotField).
+  honeypot: string
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
@@ -34,7 +36,7 @@ function maskPhone(phone: string): string {
 
 // Sign-up step 2: the person picks e-mail or SMS, receives a 6-digit code and
 // confirms it; only then is the account actually created.
-export function VerificationStep({ email, phone, onVerified, onBack }: Props) {
+export function VerificationStep({ email, phone, onVerified, onBack, honeypot }: Props) {
   const hasPhone = phone.replace(/\D/g, '').length >= 10
   const [channel, setChannel] = useState<Channel>('email')
   const [verificationId, setVerificationId] = useState('')
@@ -55,6 +57,7 @@ export function VerificationStep({ email, phone, onVerified, onBack }: Props) {
     setError('')
     try {
       const data = await post<{ id: string; dev_code?: string }>('/api/v1/verifications', {
+        website: honeypot,
         channel,
         destination: channel === 'email' ? email : phone,
       })

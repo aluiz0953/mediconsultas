@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { apiUrl } from '../lib/api'
+import { HoneypotField } from '../components/HoneypotField'
 import { VerificationStep } from '../components/VerificationStep'
 import { LegalDialog } from '../components/LegalDialog'
 import type { LegalDocumentKey } from '../lib/legalDocuments'
@@ -71,6 +72,7 @@ export function RegisterPage() {
   const [address, setAddress] = useState<Address>(EMPTY_ADDRESS)
   const [doctorForm, setDoctorForm] = useState<DoctorFormState>(INITIAL_DOCTOR_STATE)
   const [step, setStep] = useState<'form' | 'verify'>('form')
+  const [honeypot, setHoneypot] = useState('')
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [openDoc, setOpenDoc] = useState<LegalDocumentKey | null>(null)
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
@@ -106,7 +108,7 @@ export function RegisterPage() {
       const response = await fetch(apiUrl(isDoctor ? '/api/v1/doctors/register' : '/api/v1/patients/register'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ...payload, verification_id: verificationId }),
+        body: JSON.stringify({ ...payload, verification_id: verificationId, website: honeypot }),
       })
 
       if (!response.ok) {
@@ -133,6 +135,7 @@ export function RegisterPage() {
 
         {step === 'verify' ? (
           <VerificationStep
+            honeypot={honeypot}
             email={isDoctor ? doctorForm.email : form.email}
             phone={isDoctor ? doctorForm.phone : form.phone}
             onVerified={register}
@@ -158,6 +161,7 @@ export function RegisterPage() {
         </div>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+          <HoneypotField value={honeypot} onChange={setHoneypot} />
           {isDoctor ? (
             <>
               <Field label="Nome completo" id="full_name" value={doctorForm.full_name} onChange={updateDoctor('full_name')} required />

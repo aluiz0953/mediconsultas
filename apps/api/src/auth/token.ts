@@ -6,11 +6,12 @@ export interface SessionClaims {
 }
 
 export function signSession(claims: SessionClaims, secret: string, expiresInSeconds = 1800): string {
-  return jwt.sign(claims, secret, { expiresIn: expiresInSeconds });
+  return jwt.sign(claims, secret, { expiresIn: expiresInSeconds, algorithm: 'HS256' });
 }
 
 export function verifySession(token: string, secret: string): SessionClaims {
-  return jwt.verify(token, secret) as SessionClaims;
+  // Pin the algorithm: never let the token pick how it is verified.
+  return jwt.verify(token, secret, { algorithms: ['HS256'] }) as SessionClaims;
 }
 
 // Short-lived, single-purpose credential for opening the SSE stream. The
