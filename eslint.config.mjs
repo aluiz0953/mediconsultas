@@ -96,6 +96,9 @@ export default defineConfig([
   },
   globalIgnores([
     ".claude/**",
+    // Vendored shadcn-registry components (beUI, Rare UI): kept as published.
+    "apps/web/src/components/motion/**",
+    "apps/web/src/components/ui/**",
     ".github/**",
     "node_modules/**",
     "**/node_modules/**",

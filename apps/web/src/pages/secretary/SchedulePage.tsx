@@ -2,12 +2,13 @@ import { useSearchParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { apiFetch, ApiError, subscribeAppointmentEvents } from '../../lib/api'
 import { PageHeader } from '../../components/PageHeader'
-import { StatusBadge } from '../../components/StatusBadge'
 import { APPOINTMENT_STATUS_LABELS } from '../../lib/appointmentStatus'
 import { toDatetimeLocal } from '../../lib/datetime'
+import { AppointmentRow, type Appointment } from './AppointmentRow'
 import { ScheduleBlocks } from './ScheduleBlocks'
 import { SkeletonRows } from '../../components/Skeleton'
 import { SlideConfirm } from '../../components/SlideConfirm'
+import { useToast } from '../../components/ToastProvider'
 
 interface Doctor {
   id: string
@@ -21,21 +22,13 @@ interface Patient {
   full_name: string
 }
 
-interface Appointment {
-  id: string
-  patient: { id: string; display_name: string }
-  doctor: { id: string; display_name: string }
-  starts_at: string
-  ends_at: string
-  status: string
-}
-
 function todayIsoDate(): string {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 }
 
 export function SchedulePage() {
+  const toast = useToast()
   // Deep links (e.g. "consultas de amanhã" on the home page) can open a given day.
   const [searchParams] = useSearchParams()
   const [date, setDate] = useState(() => searchParams.get('date') ?? todayIsoDate())
@@ -127,6 +120,7 @@ export function SchedulePage() {
       setPatientQuery('')
       setSelectedDoctorId('')
       await loadAgenda()
+      toast.success('Consulta marcada', `${selectedPatient.full_name} · ${startTime}`)
       return true
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Falha ao agendar consulta.')
@@ -142,9 +136,11 @@ export function SchedulePage() {
     try {
       await apiFetch(`/api/v1/secretary/appointments/${id}/${action}`, { method: 'POST' })
       void loadAgenda(true)
+      toast.success(status === 'CONFIRMED' ? 'Consulta confirmada' : 'Consulta cancelada')
     } catch (err) {
       setAppointments(previous)
       setError(err instanceof ApiError ? err.message : failure)
+      toast.error(failure)
     }
   }
 
@@ -297,45 +293,7 @@ export function SchedulePage() {
       ) : (
         <ul className="mt-4 space-y-3">
           {appointments.map((appointment) => (
-            <li
-              key={appointment.id}
-              className="flex items-center justify-between gap-4 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
-            >
-              <div>
-                <p className="font-medium text-neutral-900 dark:text-white">
-                  {new Date(appointment.starts_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                  {' – '}
-                  {new Date(appointment.ends_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                </p>
-                <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                  {appointment.patient.display_name} com {appointment.doctor.display_name}
-                </p>
-                <div className="mt-1.5">
-                  <StatusBadge status={appointment.status} />
-                </div>
-              </div>
-
-              {(appointment.status === 'SCHEDULED' || appointment.status === 'CONFIRMED') && (
-                <div className="flex shrink-0 gap-2">
-                  {appointment.status === 'SCHEDULED' && (
-                    <button
-                      type="button"
-                      onClick={() => confirm(appointment.id)}
-                      className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
-                    >
-                      Confirmar
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => cancel(appointment.id)}
-                    className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              )}
-            </li>
+            <AppointmentRow key={appointment.id} appointment={appointment} onConfirm={confirm} onCancel={cancel} />
           ))}
         </ul>
       )}
