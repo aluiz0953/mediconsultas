@@ -6,7 +6,9 @@ import { patientsRouter } from './patients.js';
 import { doctorsRouter } from './doctors.js';
 import { adminDoctorsRouter } from './admin-doctors.js';
 import { secretaryAppointmentsRouter } from './secretary-appointments.js';
-import { doctorAppointmentsRouter } from './doctor-appointments.js';
+import { doctorAppointmentsRouter, type DoctorAppointmentsRouterConfig } from './doctor-appointments.js';
+import { InMemoryClinicalRecordRepository } from '../repositories/clinical-record-repository.js';
+import { InMemoryPrescriptionRepository } from '../repositories/prescription-repository.js';
 import { InMemoryPatientRepository } from '../repositories/patient-repository.js';
 import { InMemoryDoctorRepository } from '../repositories/doctor-repository.js';
 import { InMemoryAppointmentRepository } from '../repositories/appointment-repository.js';
@@ -53,7 +55,7 @@ const doctorPayload = {
   password: 'Senha#Forte10',
 };
 
-function buildApp(): Express {
+function buildApp(completion?: DoctorAppointmentsRouterConfig['completion']): Express {
   const app = express();
   app.use(express.json());
   const patientRepository = new InMemoryPatientRepository();
@@ -70,9 +72,17 @@ function buildApp(): Express {
     '/api/v1/doctor/appointments',
     requireAuth(JWT_SECRET),
     requireRole('DOCTOR'),
-    doctorAppointmentsRouter({ appointmentRepository, patientRepository, cpfHmacSecret: CPF_HMAC_SECRET }),
+    doctorAppointmentsRouter({ appointmentRepository, patientRepository, cpfHmacSecret: CPF_HMAC_SECRET, completion }),
   );
   return app;
+}
+
+function buildCompletion() {
+  return {
+    clinicalRecordRepository: new InMemoryClinicalRecordRepository(),
+    prescriptionRepository: new InMemoryPrescriptionRepository(),
+    auditEventRepository: new InMemoryAuditEventRepository(),
+  };
 }
 
 async function startServer(app: Express) {
@@ -239,6 +249,103 @@ test("filters the doctor's queue by status and by patient name/CPF", async () =>
     const byCpfItems = byCpfBody.items as Array<Record<string, unknown>>;
     assert.equal(byCpfItems.length, 1);
     assert.equal((byCpfItems[0].patient as Record<string, unknown>).id, patientId);
+  } finally {
+    server.close();
+  }
+});
+
+async function seedInProgressAppointment(base: string) {
+  const ids = await seedConfirmedAppointment(base);
+  await post(`${base}/doctor/appointments/${ids.appointmentId}/start`, undefined, doctorAuthHeaders(ids.doctorId));
+  return ids;
+}
+
+test('completes an in-progress appointment with a finalized clinical record and audits it (DOC-07)', async () => {
+  const completion = buildCompletion();
+  const { server, base } = await startServer(buildApp(completion));
+  try {
+    const { patientId, doctorId, appointmentId } = await seedInProgressAppointment(base);
+    const record = await completion.clinicalRecordRepository.create({ appointmentId, patientId, doctorId, contentCiphertext: 'x' });
+    await completion.clinicalRecordRepository.finalize(record.id, { finalizedAt: new Date(), releasedAt: null });
+
+    const response = await post(`${base}/doctor/appointments/${appointmentId}/complete`, {}, doctorAuthHeaders(doctorId));
+    assert.equal(response.status, 200);
+    assert.equal((await json(response)).status, 'COMPLETED');
+
+    const [event] = await completion.auditEventRepository.list({ action: 'appointment.completed' });
+    assert.equal(event.resourceId, appointmentId);
+    assert.equal(event.actorUserId, doctorId);
+    assert.equal(event.reason, 'clinical_record v1');
+
+    const again = await post(`${base}/doctor/appointments/${appointmentId}/complete`, {}, doctorAuthHeaders(doctorId));
+    assert.equal(again.status, 409);
+  } finally {
+    server.close();
+  }
+});
+
+test('completing without a clinical record requires a justification (DOC-07)', async () => {
+  const completion = buildCompletion();
+  const { server, base } = await startServer(buildApp(completion));
+  try {
+    const { doctorId, appointmentId } = await seedInProgressAppointment(base);
+
+    const missing = await post(`${base}/doctor/appointments/${appointmentId}/complete`, { no_record_reason: '  ' }, doctorAuthHeaders(doctorId));
+    assert.equal(missing.status, 400);
+    assert.equal((await json(missing)).code, 'CLINICAL_RECORD_REQUIRED');
+
+    const justified = await post(
+      `${base}/doctor/appointments/${appointmentId}/complete`,
+      { no_record_reason: 'Paciente só veio buscar um atestado.' },
+      doctorAuthHeaders(doctorId),
+    );
+    assert.equal(justified.status, 200);
+    const [event] = await completion.auditEventRepository.list({ action: 'appointment.completed' });
+    assert.equal(event.reason, 'sem registro clínico: Paciente só veio buscar um atestado.');
+  } finally {
+    server.close();
+  }
+});
+
+test('completing is blocked by a draft clinical record or a draft prescription (DOC-07)', async () => {
+  const completion = buildCompletion();
+  const { server, base } = await startServer(buildApp(completion));
+  try {
+    const { patientId, doctorId, appointmentId } = await seedInProgressAppointment(base);
+    const record = await completion.clinicalRecordRepository.create({ appointmentId, patientId, doctorId, contentCiphertext: 'x' });
+
+    const draftRecord = await post(`${base}/doctor/appointments/${appointmentId}/complete`, {}, doctorAuthHeaders(doctorId));
+    assert.equal(draftRecord.status, 409);
+    assert.equal((await json(draftRecord)).code, 'CLINICAL_RECORD_NOT_FINALIZED');
+
+    await completion.clinicalRecordRepository.finalize(record.id, { finalizedAt: new Date(), releasedAt: null });
+    await completion.prescriptionRepository.create({ appointmentId, patientId, doctorId, items: [], noMedicationNeeded: true });
+
+    const draftPrescription = await post(`${base}/doctor/appointments/${appointmentId}/complete`, {}, doctorAuthHeaders(doctorId));
+    assert.equal(draftPrescription.status, 409);
+    assert.equal((await json(draftPrescription)).code, 'PRESCRIPTION_NOT_FINALIZED');
+  } finally {
+    server.close();
+  }
+});
+
+test('only the linked doctor can complete, and only an in-progress appointment (DOC-07)', async () => {
+  const { server, base } = await startServer(buildApp(buildCompletion()));
+  try {
+    const { doctorId, appointmentId } = await seedConfirmedAppointment(base);
+    const body = { no_record_reason: 'Teste.' };
+
+    const notStarted = await post(`${base}/doctor/appointments/${appointmentId}/complete`, body, doctorAuthHeaders(doctorId));
+    assert.equal(notStarted.status, 409);
+    assert.equal((await json(notStarted)).code, 'INVALID_STATUS_TRANSITION');
+
+    await post(`${base}/doctor/appointments/${appointmentId}/start`, undefined, doctorAuthHeaders(doctorId));
+    const otherDoctor = await post(
+      `${base}/doctor/appointments/${appointmentId}/complete`,
+      body,
+      doctorAuthHeaders('00000000-0000-0000-0000-000000000000'),
+    );
+    assert.equal(otherDoctor.status, 403);
   } finally {
     server.close();
   }
