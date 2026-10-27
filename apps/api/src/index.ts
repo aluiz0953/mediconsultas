@@ -190,6 +190,8 @@ app.use(
 
 const appointmentRepository = new PgAppointmentRepository(pool);
 const doctorScheduleBlockRepository = new PgDoctorScheduleBlockRepository(pool);
+const clinicalRecordRepository = new PgClinicalRecordRepository(pool);
+const prescriptionRepository = new PgPrescriptionRepository(pool);
 app.use(
   '/api/v1/secretary/appointments',
   requireAuth(JWT_SECRET),
@@ -212,7 +214,13 @@ app.use(
   '/api/v1/doctor/appointments',
   requireAuth(JWT_SECRET),
   requireRole('DOCTOR'),
-  doctorAppointmentsRouter({ appointmentRepository, patientRepository, doctorRepository, cpfHmacSecret: CPF_HMAC_SECRET }),
+  doctorAppointmentsRouter({
+    appointmentRepository,
+    patientRepository,
+    doctorRepository,
+    cpfHmacSecret: CPF_HMAC_SECRET,
+    completion: { clinicalRecordRepository, prescriptionRepository, auditEventRepository },
+  }),
 );
 app.use(
   '/api/v1/appointments/events/ticket',
@@ -233,7 +241,6 @@ app.use(
   clinicSettingsRouter({ repository: clinicSettingsRepository }),
 );
 
-const clinicalRecordRepository = new PgClinicalRecordRepository(pool);
 app.use(
   '/api/v1/doctor',
   requireAuth(JWT_SECRET),
@@ -249,7 +256,6 @@ app.use(
   }),
 );
 
-const prescriptionRepository = new PgPrescriptionRepository(pool);
 app.use(
   '/api/v1/doctor',
   requireAuth(JWT_SECRET),

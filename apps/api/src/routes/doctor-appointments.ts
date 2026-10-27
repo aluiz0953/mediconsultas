@@ -2,6 +2,9 @@ import { Router } from 'express';
 import type { AppointmentRepository } from '../repositories/appointment-repository.js';
 import type { PatientRepository } from '../repositories/patient-repository.js';
 import type { DoctorRepository } from '../repositories/doctor-repository.js';
+import type { ClinicalRecordRepository } from '../repositories/clinical-record-repository.js';
+import type { PrescriptionRepository } from '../repositories/prescription-repository.js';
+import type { AuditEventRepository } from '../repositories/audit-event-repository.js';
 import { publishAppointmentChange } from '../realtime/appointment-events.js';
 import { hmacSha256Hex } from '../crypto/hmac.js';
 import { normalizeCpf } from '../validation/cpf.js';
@@ -12,6 +15,12 @@ export interface DoctorAppointmentsRouterConfig {
   cpfHmacSecret: string;
   // When given, a PAUSED queue blocks starting new consultations.
   doctorRepository?: DoctorRepository;
+  // DOC-07: when given, mounts POST /:appointmentId/complete.
+  completion?: {
+    clinicalRecordRepository: ClinicalRecordRepository;
+    prescriptionRepository: PrescriptionRepository;
+    auditEventRepository: AuditEventRepository;
+  };
 }
 
 export function doctorAppointmentsRouter(config: DoctorAppointmentsRouterConfig): Router {
@@ -87,6 +96,74 @@ export function doctorAppointmentsRouter(config: DoctorAppointmentsRouterConfig)
     publishAppointmentChange({ appointmentId: updated!.id, doctorId: updated!.doctorId, status: updated!.status });
     res.json({ id: updated!.id, status: updated!.status });
   });
+
+  // DOC-07: the linked doctor closes an in-progress consultation. It needs a finalized
+  // clinical record, or a stated reason when there is none. A draft record or prescription
+  // also blocks it, since nothing may stay editable once the consultation is closed.
+  const completion = config.completion;
+  if (completion) {
+    router.post('/:appointmentId/complete', async (req, res) => {
+      const appointment = await config.appointmentRepository.findById(req.params.appointmentId);
+      if (!appointment) {
+        res.status(404).json({ code: 'APPOINTMENT_NOT_FOUND', message: 'Consulta não encontrada.' });
+        return;
+      }
+
+      if (appointment.doctorId !== req.user!.sub) {
+        res.status(403).json({ code: 'RESOURCE_ACCESS_DENIED', message: 'Você não tem permissão para acessar este recurso.' });
+        return;
+      }
+
+      if (appointment.status !== 'IN_PROGRESS') {
+        res.status(409).json({
+          code: 'INVALID_STATUS_TRANSITION',
+          message: `Não é possível concluir uma consulta com status ${appointment.status}.`,
+        });
+        return;
+      }
+
+      const [record, prescription] = await Promise.all([
+        completion.clinicalRecordRepository.findByAppointmentId(appointment.id),
+        completion.prescriptionRepository.findByAppointmentId(appointment.id),
+      ]);
+      const noRecordReason = typeof req.body?.no_record_reason === 'string' ? req.body.no_record_reason.trim() : '';
+
+      if (record?.status === 'DRAFT') {
+        res.status(409).json({ code: 'CLINICAL_RECORD_NOT_FINALIZED', message: 'Finalize o registro clínico antes de concluir a consulta.' });
+        return;
+      }
+      if (!record && !noRecordReason) {
+        res.status(400).json({
+          code: 'CLINICAL_RECORD_REQUIRED',
+          message: 'Finalize o registro clínico ou informe a justificativa para concluir sem ele.',
+        });
+        return;
+      }
+      if (prescription?.status === 'DRAFT') {
+        res.status(409).json({ code: 'PRESCRIPTION_NOT_FINALIZED', message: 'Finalize a receita antes de concluir a consulta.' });
+        return;
+      }
+
+      const updated = await config.appointmentRepository.updateStatus(appointment.id, 'COMPLETED');
+      // The audit row carries who and when; the reason pins the document versions it was closed with.
+      const documents = [
+        record ? `clinical_record v${record.version}` : `sem registro clínico: ${noRecordReason}`,
+        prescription ? `prescription v${prescription.version}` : null,
+      ].filter(Boolean);
+      await completion.auditEventRepository.record({
+        actorUserId: req.user?.sub ?? null,
+        actorRole: req.user?.role ?? null,
+        action: 'appointment.completed',
+        resourceType: 'appointment',
+        resourceId: updated!.id,
+        patientId: appointment.patientId,
+        result: 'SUCCESS',
+        reason: documents.join('; '),
+      });
+      publishAppointmentChange({ appointmentId: updated!.id, doctorId: updated!.doctorId, status: updated!.status });
+      res.json({ id: updated!.id, status: updated!.status });
+    });
+  }
 
   return router;
 }
