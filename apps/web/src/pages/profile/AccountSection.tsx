@@ -80,7 +80,7 @@ export function AccountSection() {
             </p>
           )}
           {passwordStatus === 'saved' && (
-            <p role="status" className="text-sm text-emerald-600 dark:text-emerald-400">
+            <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">
               Senha atualizada.
             </p>
           )}
@@ -88,7 +88,7 @@ export function AccountSection() {
           <button
             type="submit"
             disabled={passwordStatus === 'saving'}
-            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {passwordStatus === 'saving' ? 'Salvando…' : 'Atualizar senha'}
           </button>
@@ -115,7 +115,7 @@ export function AccountSection() {
             </p>
           )}
           {emailStatus === 'saved' && (
-            <p role="status" className="text-sm text-emerald-600 dark:text-emerald-400">
+            <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">
               E-mail atualizado.
             </p>
           )}
@@ -123,7 +123,7 @@ export function AccountSection() {
           <button
             type="submit"
             disabled={emailStatus === 'saving'}
-            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {emailStatus === 'saving' ? 'Salvando…' : 'Atualizar e-mail'}
           </button>

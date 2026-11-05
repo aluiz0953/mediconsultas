@@ -16,7 +16,7 @@ const LOOK: Record<QueueStatus, { label: string; hint: string; className: string
   OPEN: {
     label: 'Fila aberta',
     hint: 'Fila aberta. Toque para pausar.',
-    className: 'border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700',
+    className: 'border border-emerald-600 bg-emerald-700 text-white hover:bg-emerald-800',
   },
   PAUSED: {
     label: 'Fila pausada',
@@ -64,7 +64,7 @@ export function QueueToggle({ onChange }: { onChange?: (status: QueueStatus) => 
         disabled={!status || busy}
         aria-label={look.hint}
         title={look.hint}
-        className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60 ${look.className}`}
+        className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 disabled:opacity-60 ${look.className}`}
       >
         {status === 'OPEN' && <span className="h-2 w-2 rounded-full bg-white" aria-hidden="true" />}
         {status === 'PAUSED' && (

@@ -124,7 +124,7 @@ export function SlideConfirm({ label, busyLabel = 'Confirmando…', doneLabel = 
       <div
         ref={fillRef}
         aria-hidden="true"
-        className={`absolute inset-y-0 left-0 rounded-full transition-colors duration-300 ${finished ? 'bg-emerald-600' : 'bg-emerald-500/30'}`}
+        className={`absolute inset-y-0 left-0 rounded-full transition-colors duration-300 ${finished ? 'bg-emerald-700' : 'bg-emerald-500/30'}`}
         style={{ width: 0 }}
       />
 

@@ -43,7 +43,7 @@ function CompleteConsultationSection({ appointmentId }: { appointmentId?: string
   return (
     <section className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
       <h2 className="font-medium text-neutral-900 dark:text-white">Concluir atendimento</h2>
-      <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+      <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
         Depois de concluída, a consulta não aceita mais alterações no registro clínico nem na receita.
       </p>
       <label className="mt-3 block text-sm text-neutral-700 dark:text-neutral-300">
@@ -64,7 +64,7 @@ function CompleteConsultationSection({ appointmentId }: { appointmentId?: string
         type="button"
         disabled={submitting}
         onClick={complete}
-        className="mt-3 rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-3 rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
       >
         Concluir atendimento
       </button>

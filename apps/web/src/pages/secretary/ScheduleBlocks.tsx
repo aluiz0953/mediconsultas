@@ -80,7 +80,7 @@ export function ScheduleBlocks({ date, doctors }: { date: string; doctors: Block
   return (
     <div className="mt-10">
       <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">Bloqueio de agenda</h2>
-      <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+      <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
         Bloqueie um intervalo na agenda de um médico (feriado, folga, emergência) para evitar agendamentos.
       </p>
 
@@ -144,7 +144,7 @@ export function ScheduleBlocks({ date, doctors }: { date: string; doctors: Block
         <div className="sm:col-span-2">
           <button
             type="submit"
-            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+            className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
           >
             Bloquear horário
           </button>
@@ -154,7 +154,7 @@ export function ScheduleBlocks({ date, doctors }: { date: string; doctors: Block
       {blockDoctorId && (
         <ul className="mt-4 space-y-2">
           {blocks.length === 0 && (
-            <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhum bloqueio para este médico nesta data.</p>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">Nenhum bloqueio para este médico nesta data.</p>
           )}
           {blocks.map((block) => (
             <li
@@ -172,7 +172,7 @@ export function ScheduleBlocks({ date, doctors }: { date: string; doctors: Block
               <button
                 type="button"
                 onClick={() => removeBlock(block.id)}
-                className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
               >
                 Remover
               </button>

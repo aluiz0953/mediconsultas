@@ -90,7 +90,7 @@ export function PatientDashboard() {
       <section className="mt-6 rounded-lg border border-emerald-200 bg-emerald-50/60 p-5 dark:border-emerald-900/60 dark:bg-emerald-950/20">
         <h2 className="text-sm font-medium text-emerald-800 dark:text-emerald-300">Próxima consulta</h2>
         {loading ? (
-          <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Carregando…</p>
+          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">Carregando…</p>
         ) : next ? (
           <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
             <div>

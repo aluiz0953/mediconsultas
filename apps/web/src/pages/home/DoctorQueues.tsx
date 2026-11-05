@@ -4,9 +4,9 @@ import type { QueueStatus } from '../../components/QueueToggle'
 import { AppointmentPanel } from './panels'
 
 const QUEUE_CHIP: Record<QueueStatus, { label: string; className: string }> = {
-  OPEN: { label: 'Fila aberta', className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
-  PAUSED: { label: 'Fila pausada', className: 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
-  CLOSED: { label: 'Fila fechada', className: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400' },
+  OPEN: { label: 'Fila aberta', className: 'border-solid text-neutral-900 dark:text-neutral-100' },
+  PAUSED: { label: 'Fila pausada', className: 'border-dashed text-neutral-900 dark:text-neutral-100' },
+  CLOSED: { label: 'Fila fechada', className: 'border-solid border-neutral-300 text-neutral-600 dark:border-neutral-700 dark:text-neutral-400' },
 }
 
 // Which doctors are seeing patients right now (the doctor's own queue switch).
@@ -39,10 +39,9 @@ export function DoctorQueues() {
         <li key={doctor.id} className="flex items-center justify-between gap-4 px-5 py-3">
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-neutral-900 dark:text-white">{doctor.full_name}</p>
-            <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">{doctor.specialty}</p>
+            <p className="truncate text-xs text-neutral-600 dark:text-neutral-400">{doctor.specialty}</p>
           </div>
-          <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${QUEUE_CHIP[doctor.queue_status].className}`}>
-            <span className="h-1.5 w-1.5 rounded-full bg-current" />
+          <span className={`inline-flex shrink-0 items-center rounded-[3px] border-[1.5px] border-current px-1.5 py-px text-[11px] font-semibold uppercase leading-4 tracking-wider whitespace-nowrap ${QUEUE_CHIP[doctor.queue_status].className}`}>
             {QUEUE_CHIP[doctor.queue_status].label}
           </span>
         </li>

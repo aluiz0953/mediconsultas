@@ -75,7 +75,7 @@ export function PendingDoctorsPage() {
       {loading ? (
         <SkeletonRows count={3} className="mt-4" />
       ) : doctors.length === 0 ? (
-        <p className="mt-6 text-sm text-neutral-500 dark:text-neutral-400">Nenhum médico pendente.</p>
+        <p className="mt-6 text-sm text-neutral-600 dark:text-neutral-400">Nenhum médico pendente.</p>
       ) : (
         <ul className="mt-6 space-y-3">
           {doctors.map((doctor) => (
@@ -86,7 +86,7 @@ export function PendingDoctorsPage() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="font-medium text-neutral-900 dark:text-white">{doctor.full_name}</p>
-                  <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400">
                     {doctor.specialty} · CRM/{doctor.license_state}
                   </p>
                 </div>
@@ -95,14 +95,14 @@ export function PendingDoctorsPage() {
                   <button
                     type="button"
                     onClick={() => approve(doctor.id)}
-                    className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                    className="rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
                   >
                     Aprovar
                   </button>
                   <button
                     type="button"
                     onClick={() => setRejecting(rejecting === doctor.id ? null : doctor.id)}
-                    className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                    className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                   >
                     Rejeitar
                   </button>

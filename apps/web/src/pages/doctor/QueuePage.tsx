@@ -122,7 +122,7 @@ export function QueuePage() {
       {loading ? (
         <SkeletonRows count={3} className="mt-4" />
       ) : appointments.length === 0 ? (
-        <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Nenhuma consulta nesta data.</p>
+        <p className="mt-4 text-sm text-neutral-600 dark:text-neutral-400">Nenhuma consulta nesta data.</p>
       ) : (
         <ul className="mt-4 space-y-3">
           {appointments.map((appointment) => (
@@ -146,7 +146,7 @@ export function QueuePage() {
                   type="button"
                   disabled={startingId === appointment.id || queueStatus === 'PAUSED'}
                   onClick={() => start(appointment.id)}
-                  className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="shrink-0 rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Iniciar atendimento
                 </button>
@@ -155,7 +155,7 @@ export function QueuePage() {
                 <button
                   type="button"
                   onClick={() => navigate(`/doctor/appointments/${appointment.id}`)}
-                  className="shrink-0 rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  className="shrink-0 rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                 >
                   Continuar atendimento
                 </button>

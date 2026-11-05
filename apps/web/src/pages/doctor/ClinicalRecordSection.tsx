@@ -105,12 +105,12 @@ export function ClinicalRecordSection({ appointmentId }: { appointmentId: string
         <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">Registro clínico</h2>
         {record && (
           <div className="flex items-center gap-3">
-            <span className="text-xs text-neutral-500 dark:text-neutral-400">{record.status === 'DRAFT' ? 'Rascunho' : 'Finalizado'}</span>
+            <span className="text-xs text-neutral-600 dark:text-neutral-400">{record.status === 'DRAFT' ? 'Rascunho' : 'Finalizado'}</span>
             {record.status === 'FINALIZED' && (
               <button
                 type="button"
                 onClick={() => openPdf(`/api/v1/doctor/clinical-records/${record.id}/pdf`)}
-                className="rounded-md border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                className="rounded-md border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
               >
                 Baixar PDF
               </button>
@@ -149,7 +149,7 @@ export function ClinicalRecordSection({ appointmentId }: { appointmentId: string
             <button
               type="button"
               onClick={openRecord}
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+              className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
             >
               Abrir registro
             </button>
@@ -158,7 +158,7 @@ export function ClinicalRecordSection({ appointmentId }: { appointmentId: string
               <button
                 type="button"
                 onClick={saveRecordDraft}
-                className="rounded-md border border-neutral-300 px-4 py-2 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                className="rounded-md border border-neutral-300 px-4 py-2 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
               >
                 Salvar rascunho
               </button>
@@ -169,7 +169,7 @@ export function ClinicalRecordSection({ appointmentId }: { appointmentId: string
               <button
                 type="button"
                 onClick={finalizeRecord}
-                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
               >
                 Finalizar registro
               </button>
