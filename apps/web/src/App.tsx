@@ -35,7 +35,7 @@ const AppointmentsPage = lazy(() =>
 const RecordsPage = lazy(() => import('./pages/patient/RecordsPage').then((m) => ({ default: m.RecordsPage })))
 
 function PageFallback() {
-  return <p className="text-sm text-neutral-500 dark:text-neutral-400">Carregando…</p>
+  return <p className="text-sm text-neutral-600 dark:text-neutral-400">Carregando…</p>
 }
 
 function App() {

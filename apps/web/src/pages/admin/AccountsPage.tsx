@@ -132,12 +132,12 @@ export function AccountsPage() {
 
       <section className="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
         <h2 className="font-medium text-neutral-900 dark:text-white">Matriz de permissões (RBAC)</h2>
-        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+        <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
           Acesso por perfil, conforme configurado nas rotas da API.
         </p>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="text-neutral-500 dark:text-neutral-400">
+            <thead className="text-neutral-600 dark:text-neutral-400">
               <tr>
                 <th className="py-1.5 pr-3 font-semibold">Módulo</th>
                 <th className="px-3 py-1.5 font-semibold">Paciente</th>
@@ -150,9 +150,9 @@ export function AccountsPage() {
               {RBAC_ROWS.map((row) => (
                 <tr key={row.module}>
                   <td className="py-2 pr-3 font-medium text-neutral-900 dark:text-white">{row.module}</td>
-                  <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400">{row.PATIENT}</td>
-                  <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400">{row.SECRETARY}</td>
-                  <td className="px-3 py-2 text-neutral-500 dark:text-neutral-400">{row.DOCTOR}</td>
+                  <td className="px-3 py-2 text-neutral-600 dark:text-neutral-400">{row.PATIENT}</td>
+                  <td className="px-3 py-2 text-neutral-600 dark:text-neutral-400">{row.SECRETARY}</td>
+                  <td className="px-3 py-2 text-neutral-600 dark:text-neutral-400">{row.DOCTOR}</td>
                   <td className="px-3 py-2 font-medium text-emerald-700 dark:text-emerald-400">{row.ADMIN}</td>
                 </tr>
               ))}
@@ -163,7 +163,7 @@ export function AccountsPage() {
 
       <section className="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
         <h2 className="font-medium text-neutral-900 dark:text-white">Convidar conta</h2>
-        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+        <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
           A pessoa precisa já ter uma conta. Ela recebe o convite ao entrar e o perfil só muda quando ela aceitar.
         </p>
         <form className="mt-4 flex flex-wrap items-end gap-3" onSubmit={handleInvite}>
@@ -200,7 +200,7 @@ export function AccountsPage() {
           <button
             type="submit"
             disabled={inviteStatus === 'loading'}
-            className="rounded-md bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md bg-emerald-700 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {inviteStatus === 'loading' ? 'Enviando…' : 'Convidar'}
           </button>
@@ -211,7 +211,7 @@ export function AccountsPage() {
           </p>
         )}
         {inviteStatus === 'done' && (
-          <p role="status" className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">
+          <p role="status" className="mt-2 text-sm text-emerald-700 dark:text-emerald-400">
             Convite enviado. A pessoa verá o convite na próxima vez que abrir a conta.
           </p>
         )}
@@ -242,7 +242,7 @@ export function AccountsPage() {
         {loading ? (
           <SkeletonRows count={3} className="mt-4" />
         ) : accounts.length === 0 ? (
-          <p className="mt-6 text-sm text-neutral-500 dark:text-neutral-400">Nenhuma conta encontrada.</p>
+          <p className="mt-6 text-sm text-neutral-600 dark:text-neutral-400">Nenhuma conta encontrada.</p>
         ) : (
           <ul className="mt-4 space-y-3">
             {accounts.map((account) => (
@@ -253,7 +253,7 @@ export function AccountsPage() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="font-medium text-neutral-900 dark:text-white">{account.full_name ?? account.email}</p>
-                    <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
                       {account.email} · {account.role} · {account.status}
                     </p>
                   </div>

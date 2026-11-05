@@ -75,7 +75,7 @@ export function MyAppointments() {
     <section className="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
       <h2 className="text-base font-semibold text-neutral-900 dark:text-white">Minhas consultas</h2>
       {state === 'loading' ? (
-        <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Carregando…</p>
+        <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">Carregando…</p>
       ) : !formOpen ? (
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <p className="max-w-prose text-sm text-neutral-600 dark:text-neutral-300">
@@ -84,7 +84,7 @@ export function MyAppointments() {
           <button
             type="button"
             onClick={() => setFormOpen(true)}
-            className="rounded-md border border-emerald-300 px-3 py-1.5 text-sm font-medium text-emerald-800 transition hover:bg-emerald-50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+            className="rounded-md border border-emerald-300 px-3 py-1.5 text-sm font-medium text-emerald-800 transition hover:bg-emerald-50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
           >
             Cadastrar meus dados de paciente
           </button>

@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-05T00:00:00Z",
+  "title": "Design System: MediConsultas (signed-in interior)",
+  "extensions": {
+    "colorMeta": {
+      "emerald-fill": { "role": "primary", "displayName": "Clinic Emerald", "canonical": "#047857", "tonalRamp": ["#064e3b", "#065f46", "#047857", "#059669", "#10b981", "#34d399", "#a7f3d0", "#ecfdf5"] },
+      "stop-red": { "role": "secondary", "displayName": "Stop Red", "canonical": "#991b1b", "tonalRamp": ["#7f1d1d", "#991b1b", "#b91c1c", "#dc2626", "#ef4444", "#f87171", "#fecaca", "#fef2f2"] },
+      "sheet": { "role": "neutral", "displayName": "Sheet", "canonical": "#fafafa", "tonalRamp": ["#171717", "#262626", "#404040", "#525252", "#737373", "#d4d4d4", "#e5e5e5", "#fafafa"] },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "#171717", "tonalRamp": ["#0a0a0a", "#171717", "#262626", "#404040", "#525252", "#737373", "#a3a3a3", "#d4d4d4"] },
+      "rule": { "role": "neutral", "displayName": "Rule", "canonical": "#e5e5e5", "tonalRamp": ["#404040", "#525252", "#737373", "#a3a3a3", "#d4d4d4", "#e5e5e5", "#f5f5f5", "#fafafa"] }
+    },
+    "typographyMeta": {
+      "page-title": { "displayName": "Page title", "purpose": "One h1 per screen in the ruled header." },
+      "figure": { "displayName": "Figure", "purpose": "Number in a stat field." },
+      "time": { "displayName": "Time", "purpose": "Appointment time anchoring a ficha strip." },
+      "value": { "displayName": "Value", "purpose": "Primary datum of a row (patient name)." },
+      "body": { "displayName": "Body", "purpose": "Supporting lines, tabular numerals." },
+      "label": { "displayName": "Label", "purpose": "Uppercase 11px field labels and stamps." }
+    },
+    "shadows": [
+      { "name": "toast", "value": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)", "purpose": "Tailwind shadow-md; only on the floating toast. Everything at rest is flat." }
+    ],
+    "motion": [
+      { "name": "ease-out-expo", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Rail width, stamp flip, toggle thumb, login card." },
+      { "name": "rail-width", "value": "200ms", "purpose": "72px to 240px on hover or focus-within; none under reduced motion." },
+      { "name": "status-flip", "value": "380ms rotateX(-90deg) to 0, origin top", "purpose": "Stamp flips once on a live status change; none under reduced motion." },
+      { "name": "toast-spring", "value": "spring stiffness 420, damping 34, mass 0.75", "purpose": "Toast stack layout; opacity-only under reduced motion." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Confirm or create; emerald-700 fill with white text.",
+      "html": "<button class=\"ds-btn-primary\">Confirmar</button>",
+      "css": ".ds-btn-primary{background:#047857;color:#fff;border:0;border-radius:6px;padding:8px 14px;font:500 14px/20px 'Outfit Variable',system-ui,sans-serif;cursor:pointer;transition:background .15s,transform .15s}.ds-btn-primary:hover{background:#065f46}.ds-btn-primary:active{transform:scale(.98)}.ds-btn-primary:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px #059669}"
+    },
+    {
+      "name": "Cancel Button",
+      "kind": "button",
+      "refersTo": "button-cancel",
+      "description": "Destructive action: red text, no fill, underline on hover.",
+      "html": "<button class=\"ds-btn-cancel\">Cancelar</button>",
+      "css": ".ds-btn-cancel{background:none;border:0;color:#991b1b;border-radius:6px;padding:8px 12px;font:500 14px/20px 'Outfit Variable',system-ui,sans-serif;cursor:pointer;text-underline-offset:4px}.ds-btn-cancel:hover{text-decoration:underline}.ds-btn-cancel:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px #b91c1c}"
+    },
+    {
+      "name": "Status Stamps",
+      "kind": "chip",
+      "refersTo": "stamp",
+      "description": "Border style encodes status kind; ink stays neutral, red only for stop states.",
+      "html": "<span class=\"ds-stamp ds-wait\">Agendada</span> <span class=\"ds-stamp ds-ok\">Confirmada</span> <span class=\"ds-stamp ds-live\">Em atendimento</span> <span class=\"ds-stamp ds-done\">Atendida</span> <span class=\"ds-stamp ds-stop\">Cancelada</span>",
+      "css": ".ds-stamp{display:inline-flex;align-items:center;border:1.5px solid currentColor;border-radius:3px;padding:1px 6px;font:600 11px/16px 'Outfit Variable',system-ui,sans-serif;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;color:#171717}.ds-wait{border-style:dashed}.ds-ok{border-style:solid}.ds-live{border-style:double;border-width:3px;padding:0 6px}.ds-done{border-style:solid;color:#525252;border-color:#d4d4d4}.ds-stop{border-style:solid;color:#991b1b}"
+    },
+    {
+      "name": "Ficha Strip",
+      "kind": "card",
+      "refersTo": "ficha-strip",
+      "description": "Secretary agenda row: time, patient, doctor, stamp, and confirm/cancel at opposite ends.",
+      "html": "<div class=\"ds-strip\"><div><p class=\"ds-time\">09:30</p><p class=\"ds-sub\">até 10:00</p></div><div><p class=\"ds-name\">Maria Souza</p><p class=\"ds-sub\">com Dr. Lima</p><span class=\"ds-stamp-s\">Agendada</span></div><div class=\"ds-act\"><button class=\"ds-ok-btn\">Confirmar</button><button class=\"ds-no-btn\">Cancelar</button></div></div>",
+      "css": ".ds-strip{display:grid;grid-template-columns:88px minmax(0,1fr) 16rem;align-items:center;gap:12px 16px;background:#fff;border:1px solid #e5e5e5;border-radius:6px;padding:12px 16px;font-family:'Outfit Variable',system-ui,sans-serif;color:#171717}.ds-strip p{margin:0}.ds-time{font-size:18px;font-weight:600;line-height:1.2}.ds-sub{font-size:14px;color:#525252}.ds-name{font-size:15px;font-weight:500}.ds-stamp-s{display:inline-block;margin-top:6px;border:1.5px dashed currentColor;border-radius:3px;padding:1px 6px;font:600 11px/16px inherit;letter-spacing:.05em;text-transform:uppercase}.ds-act{display:flex;justify-content:space-between;align-items:center}.ds-ok-btn{background:#047857;color:#fff;border:0;border-radius:6px;padding:8px 14px;font:500 14px inherit;cursor:pointer}.ds-ok-btn:hover{background:#065f46}.ds-ok-btn:focus-visible,.ds-no-btn:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px #059669}.ds-no-btn{background:none;border:0;color:#991b1b;padding:8px 12px;font:500 14px inherit;cursor:pointer;text-underline-offset:4px}.ds-no-btn:hover{text-decoration:underline}"
+    },
+    {
+      "name": "Tab Rail Item",
+      "kind": "nav",
+      "refersTo": "tab-open",
+      "description": "44px tab in the 72px rail; current tab filled emerald.",
+      "html": "<nav class=\"ds-rail\"><a class=\"ds-tab\" href=\"#\">Início</a><a class=\"ds-tab ds-current\" aria-current=\"page\" href=\"#\">Agenda de consultas</a></nav>",
+      "css": ".ds-rail{width:226px;background:#fff;border-right:1px solid #e5e5e5;padding:8px 7px;display:flex;flex-direction:column;gap:2px;font-family:'Outfit Variable',system-ui,sans-serif}.ds-tab{display:flex;align-items:center;height:44px;padding:0 19px;border-radius:6px;font-size:14px;font-weight:500;color:#525252;text-decoration:none;transition:background .15s,color .15s}.ds-tab:hover{background:#f5f5f5;color:#171717}.ds-tab:focus-visible{outline:none;box-shadow:0 0 0 2px #059669}.ds-current,.ds-current:hover{background:#047857;color:#fff}"
+    },
+    {
+      "name": "Page Header",
+      "kind": "custom",
+      "refersTo": "page-title",
+      "description": "Ruled header: title and subtitle left, action right, 1px bottom rule.",
+      "html": "<header class=\"ds-ph\"><div><h1>Agenda de consultas</h1><p>Hoje, em ordem de horário.</p></div><button class=\"ds-ph-btn\">Nova consulta</button></header>",
+      "css": ".ds-ph{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 16px;border-bottom:1px solid #e5e5e5;padding-bottom:16px;font-family:'Outfit Variable',system-ui,sans-serif}.ds-ph h1{margin:0;font-size:24px;line-height:32px;font-weight:600;letter-spacing:-.025em;color:#171717}.ds-ph p{margin:4px 0 0;font-size:14px;color:#525252}.ds-ph-btn{background:#047857;color:#fff;border:0;border-radius:6px;padding:8px 16px;font:500 14px inherit;cursor:pointer}.ds-ph-btn:hover{background:#065f46}.ds-ph-btn:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px #059669}"
+    },
+    {
+      "name": "Stat Field",
+      "kind": "custom",
+      "refersTo": "figure",
+      "description": "Labelled field with a 2px top rule; label above the figure.",
+      "html": "<div class=\"ds-stat\"><p class=\"ds-stat-l\">Consultas hoje</p><p class=\"ds-stat-v\">12</p></div>",
+      "css": ".ds-stat{border-top:2px solid #d4d4d4;padding-top:8px;font-family:'Outfit Variable',system-ui,sans-serif}.ds-stat p{margin:0}.ds-stat-l{font-size:11px;font-weight:500;line-height:1.25;letter-spacing:.05em;text-transform:uppercase;color:#525252}.ds-stat-v{margin-top:2px;font-size:24px;line-height:32px;font-weight:600;color:#171717;font-variant-numeric:tabular-nums}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Ficha de Prontuário",
+    "overview": "Every appointment is a printed ficha on a pale sheet: a white card with a one-pixel edge, small uppercase field labels over plain values, and status as a rubber stamp rather than a coloured pill. The interior is monochrome ink on paper; emerald appears only where the user acts or where they are (the primary button, the open tab), and red appears only for cancel and absence. One family, Outfit, with tabular numerals everywhere so times and counts line up.\n\nThe system is quiet and operational. Density is moderate, rules (1px lines, a 2px top rule on stat fields, a dashed rule inside a ficha) do the work that tinted fills and icon tiles do elsewhere. Login, register, forgot and reset screens are outside this system: pinned, with their own treatment (Fraunces survives there only).\n\nApplies today to the shell and shared components (rail, page header, stat field, stamp, toast) and to the secretary schedule row. Other screens inherit the shell but still carry the older card layout (see Deviations).",
+    "keyCharacteristics": [
+      "Neutral sheet, white ficha, 1px rule edge; no gradients, no glass, no icon tiles.",
+      "Emerald-700 for every fill that carries white text; emerald never decorates.",
+      "Status is a stamp: border style encodes kind, ink stays neutral.",
+      "Destructive and confirming actions sit at opposite ends of a fixed-width column.",
+      "One typeface (Outfit), tabular numerals globally."
+    ],
+    "rules": [
+      { "name": "The Action-Only Emerald Rule", "body": "Emerald marks an action or the current place, nothing else. A screen with no primary button and no open tab has no emerald fill.", "section": "colors" },
+      { "name": "The Red-Means-Stop Rule", "body": "Red is for cancel, reject and absence. Warnings, pending and information are neutral ink with a different stamp border, never amber or blue.", "section": "colors" },
+      { "name": "The Label-Above Rule", "body": "Labels are small uppercase text above a larger value, never inline beside it.", "section": "typography" },
+      { "name": "The Flat-At-Rest Rule", "body": "A surface that is not floating over other content has a border, not a shadow.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do put the fill emerald-700 (#047857) behind any white text; use ring-emerald-600 for focus.",
+      "Do show status as a stamp and encode its kind in the border style, keeping the ink neutral.",
+      "Do place a destructive action at the opposite end of the action column from the confirming one.",
+      "Do keep field labels at 11px uppercase above 15px values, with tabular numerals.",
+      "Do honour `prefers-reduced-motion` for the rail, stamp flip and toast.",
+      "Do start a screen with a ruled PageHeader and use the 6px corner for new fichas and panels."
+    ],
+    "donts": [
+      "Don't use red for anything but cancel, reject and absence.",
+      "Don't nest cards inside cards, add gradients, icon tiles, or glass to the interior.",
+      "Don't colour a status as a tinted pill; the stamp is the only status form.",
+      "Don't introduce Fraunces or a second family outside the login screens.",
+      "Don't place Confirmar and Cancelar next to each other."
+    ]
+  }
+}

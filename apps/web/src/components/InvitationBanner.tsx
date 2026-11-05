@@ -69,7 +69,7 @@ export function InvitationBanner() {
           type="button"
           disabled={busy}
           onClick={() => answer(false)}
-          className="rounded-md border border-emerald-300 px-3 py-1.5 text-sm text-emerald-800 transition hover:bg-emerald-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-60 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+          className="rounded-md border border-emerald-300 px-3 py-1.5 text-sm text-emerald-800 transition hover:bg-emerald-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:opacity-60 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
         >
           Recusar
         </button>
@@ -77,7 +77,7 @@ export function InvitationBanner() {
           type="button"
           disabled={busy}
           onClick={() => answer(true)}
-          className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60"
+          className="rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 disabled:opacity-60"
         >
           Aceitar
         </button>

@@ -253,7 +253,7 @@ export function SchedulePage() {
             onConfirm={handleSchedule}
           />
           {(!selectedPatient || !selectedDoctorId) && (
-            <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Escolha o paciente e o médico para liberar.</p>
+            <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Escolha o paciente e o médico para liberar.</p>
           )}
         </div>
       </form>
@@ -290,7 +290,7 @@ export function SchedulePage() {
       {loading ? (
         <SkeletonRows count={3} className="mt-4" />
       ) : appointments.length === 0 ? (
-        <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Nenhuma consulta nesta data.</p>
+        <p className="mt-4 text-sm text-neutral-600 dark:text-neutral-400">Nenhuma consulta nesta data.</p>
       ) : (
         <ul className="mt-4 space-y-3">
           {appointments.map((appointment) => (

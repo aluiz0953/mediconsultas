@@ -64,19 +64,35 @@ function navForRole(role: Role | undefined): { main: NavItem[]; management: NavI
   return { main, management }
 }
 
-const NAV_ITEM_CLASS =
-  'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-emerald-100/70 transition-colors hover:bg-white/5 hover:text-white aria-[current=page]:bg-emerald-500 aria-[current=page]:text-white'
+const TAB_CLASS =
+  'relative flex h-11 items-center gap-3 rounded-md px-[19px] text-sm font-medium text-neutral-600 transition-colors duration-150 hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 aria-[current=page]:bg-emerald-700 aria-[current=page]:text-white dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white dark:aria-[current=page]:bg-emerald-700'
 
-function NavSection({ title, items, onNavigate }: { title: string; items: NavItem[]; onNavigate?: () => void }) {
+// In the rail the label stays out of sight until the rail is hovered or focused; in the drawer it is always shown.
+const RAIL_LABEL =
+  'whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover/rail:opacity-100 group-focus-within/rail:opacity-100 motion-reduce:transition-none'
+
+function NavSection({
+  title,
+  items,
+  rail,
+  onNavigate,
+}: {
+  title: string
+  items: NavItem[]
+  rail: boolean
+  onNavigate?: () => void
+}) {
   if (items.length === 0) return null
   return (
-    <div className="mt-6">
-      <p className="px-3 text-xs font-semibold tracking-widest text-emerald-100/60">{title}</p>
-      <nav className="mt-2 space-y-0.5">
+    <div className="mt-6 border-t border-neutral-200 pt-4 first:mt-0 first:border-0 first:pt-0 dark:border-neutral-800">
+      <p className={`mb-1 px-[19px] text-[11px] font-semibold uppercase tracking-widest text-neutral-500 dark:text-neutral-400 ${rail ? RAIL_LABEL : ''}`}>
+        {title}
+      </p>
+      <nav className="space-y-0.5" aria-label={title}>
         {items.map(({ to, label, icon: ItemIcon, end }) => (
-          <NavLink key={to} to={to} end={end} onClick={onNavigate} className={NAV_ITEM_CLASS}>
-            <ItemIcon className="h-4.5 w-4.5 shrink-0" />
-            {label}
+          <NavLink key={to} to={to} end={end} onClick={onNavigate} className={TAB_CLASS} title={label}>
+            <ItemIcon className="h-[18px] w-[18px] shrink-0" />
+            <span className={rail ? RAIL_LABEL : ''}>{label}</span>
           </NavLink>
         ))}
       </nav>
@@ -84,31 +100,28 @@ function NavSection({ title, items, onNavigate }: { title: string; items: NavIte
   )
 }
 
-function SidebarContent({ main, management, onNavigate }: { main: NavItem[]; management: NavItem[]; onNavigate?: () => void }) {
+function SidebarContent({
+  main,
+  management,
+  rail = false,
+  onNavigate,
+}: {
+  main: NavItem[]
+  management: NavItem[]
+  rail?: boolean
+  onNavigate?: () => void
+}) {
   return (
     <>
-      <div className="flex items-center gap-2 px-2">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500 text-white">
-          <HeartLogo className="h-4.5 w-4.5" />
-        </span>
-        <div>
-          <p className="text-sm font-semibold text-white">
-            Medi<span className="text-emerald-400">Consultas</span>
-          </p>
-          <p className="text-xs text-emerald-100/50">Cuidado conectado</p>
-        </div>
+      <div className="mb-6 flex h-11 items-center gap-3 px-[19px] text-emerald-700 dark:text-emerald-500">
+        <HeartLogo className="h-[18px] w-[18px] shrink-0" />
+        <p className={`text-sm font-semibold text-neutral-900 dark:text-white ${rail ? RAIL_LABEL : ''}`}>
+          Medi<span className="text-emerald-700 dark:text-emerald-500">Consultas</span>
+        </p>
       </div>
 
-      <NavSection title="NAVEGAÇÃO" items={main} onNavigate={onNavigate} />
-      <NavSection title="GESTÃO" items={management} onNavigate={onNavigate} />
-
-      <div className="mt-auto flex items-start gap-2 rounded-lg bg-emerald-500/10 p-3">
-        <LockIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
-        <div>
-          <p className="text-xs font-medium text-emerald-100">Dados protegidos</p>
-          <p className="text-xs text-emerald-100/50">Ambiente seguro e privado</p>
-        </div>
-      </div>
+      <NavSection title="Navegação" items={main} rail={rail} onNavigate={onNavigate} />
+      <NavSection title="Gestão" items={management} rail={rail} onNavigate={onNavigate} />
     </>
   )
 }
@@ -138,8 +151,8 @@ export function AppShell() {
 
   return (
     <div className="flex min-h-svh">
-      <aside className="hidden w-64 shrink-0 flex-col bg-[#0b1710] px-4 py-6 lg:flex">
-        <SidebarContent main={main} management={management} />
+      <aside className="group/rail fixed inset-y-0 left-0 z-30 hidden w-[72px] flex-col overflow-hidden border-r border-neutral-200 bg-white px-[7px] py-6 transition-[width] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] focus-within:w-60 hover:w-60 motion-reduce:transition-none dark:border-neutral-800 dark:bg-neutral-900 lg:flex">
+        <SidebarContent main={main} management={management} rail />
       </aside>
 
       <div
@@ -153,7 +166,7 @@ export function AppShell() {
           onClick={() => setMobileNavOpen(false)}
         />
         <aside
-          className={`absolute inset-y-0 left-0 flex w-64 flex-col bg-[#0b1710] px-4 pt-[calc(1.5rem+var(--safe-area-inset-top,0px))] pb-[calc(1.5rem+var(--safe-area-inset-bottom,0px))] transition-transform duration-300 ${
+          className={`absolute inset-y-0 left-0 flex w-64 flex-col border-r border-neutral-200 bg-white px-[7px] pt-[calc(1.5rem+var(--safe-area-inset-top,0px))] pb-[calc(1.5rem+var(--safe-area-inset-bottom,0px))] transition-transform duration-300 dark:border-neutral-800 dark:bg-neutral-900 ${
             mobileNavOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
@@ -161,7 +174,7 @@ export function AppShell() {
             type="button"
             aria-label="Fechar menu"
             onClick={() => setMobileNavOpen(false)}
-            className="absolute right-3 top-[calc(0.75rem+var(--safe-area-inset-top,0px))] rounded-md p-1.5 text-emerald-100/60 transition hover:bg-white/5 hover:text-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+            className="absolute right-3 top-[calc(0.75rem+var(--safe-area-inset-top,0px))] rounded-md p-1.5 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
           >
             <XIcon className="h-5 w-5" />
           </button>
@@ -169,14 +182,14 @@ export function AppShell() {
         </aside>
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col bg-neutral-50 dark:bg-neutral-950">
+      <div className="flex min-w-0 flex-1 flex-col bg-neutral-50 lg:pl-[72px] dark:bg-neutral-950">
         <header className="flex items-center justify-between gap-3 border-b border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900 sm:px-6">
           <div className="flex min-w-0 items-center gap-2">
             <button
               type="button"
               aria-label="Abrir menu"
               onClick={() => setMobileNavOpen(true)}
-              className="shrink-0 rounded-md p-1.5 text-neutral-500 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-neutral-400 dark:hover:bg-neutral-800 lg:hidden"
+              className="shrink-0 rounded-md p-1.5 text-neutral-500 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:text-neutral-400 dark:hover:bg-neutral-800 lg:hidden"
             >
               <MenuIcon className="h-5 w-5" />
             </button>
@@ -186,7 +199,7 @@ export function AppShell() {
             <Link
               to="/perfil"
               aria-label="Meu perfil"
-              className="flex items-center gap-2 rounded-full transition hover:opacity-80 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+              className="flex items-center gap-2 rounded-full transition hover:opacity-80 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
             >
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
                 <UserIcon className="h-4 w-4" />
@@ -201,7 +214,7 @@ export function AppShell() {
               type="button"
               onClick={handleLogout}
               aria-label="Sair"
-              className="flex items-center gap-1.5 rounded-md border border-neutral-300 px-2.5 py-1.5 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              className="flex items-center gap-1.5 rounded-md border border-neutral-300 px-2.5 py-1.5 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
             >
               <LogOutIcon className="h-4 w-4" />
               <span className="hidden sm:inline">Sair</span>
@@ -209,7 +222,7 @@ export function AppShell() {
           </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-6">
+        <main className="mx-auto w-full max-w-[1100px] flex-1 p-4 sm:p-6">
           <InvitationBanner />
           <Outlet />
         </main>

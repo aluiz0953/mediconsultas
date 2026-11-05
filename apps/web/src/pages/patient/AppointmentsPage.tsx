@@ -53,7 +53,7 @@ export function AppointmentsPage() {
       {loading ? (
         <SkeletonRows count={3} className="mt-4" />
       ) : appointments.length === 0 ? (
-        <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Você ainda não tem nenhuma consulta.</p>
+        <p className="mt-4 text-sm text-neutral-600 dark:text-neutral-400">Você ainda não tem nenhuma consulta.</p>
       ) : (
         <ul className="mt-4 space-y-3">
           {appointments.map((appointment) => (
@@ -63,7 +63,7 @@ export function AppointmentsPage() {
             >
               <div>
                 <p className="font-medium text-neutral-900 dark:text-white">{appointment.doctor.display_name}</p>
-                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">
                   {new Date(appointment.starts_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
                 </p>
               </div>

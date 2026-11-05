@@ -51,7 +51,7 @@ export function ProfilePage() {
             <UserIcon className="h-7 w-7" />
           </span>
           {user && <p className="text-sm font-medium text-neutral-900 dark:text-white">{ROLE_LABELS[user.role]}</p>}
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">MediConsultas</p>
+          <p className="text-xs text-neutral-600 dark:text-neutral-400">MediConsultas</p>
         </div>
 
         <div className="flex-1 space-y-6">
@@ -98,7 +98,7 @@ function NameSection() {
     }
   }
 
-  if (loading) return <p className="text-sm text-neutral-500 dark:text-neutral-400">Carregando…</p>
+  if (loading) return <p className="text-sm text-neutral-600 dark:text-neutral-400">Carregando…</p>
 
   return (
     <section className="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
@@ -113,7 +113,7 @@ function NameSection() {
           </p>
         )}
         {status === 'saved' && (
-          <p role="status" className="text-sm text-emerald-600 dark:text-emerald-400">
+          <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">
             Perfil atualizado.
           </p>
         )}
@@ -121,7 +121,7 @@ function NameSection() {
         <button
           type="submit"
           disabled={status === 'saving'}
-          className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {status === 'saving' ? 'Salvando…' : 'Salvar alterações'}
         </button>
@@ -168,17 +168,17 @@ function RoleProfileSection({ path }: { path: string }) {
     }
   }
 
-  if (loading) return <p className="text-sm text-neutral-500 dark:text-neutral-400">Carregando…</p>
+  if (loading) return <p className="text-sm text-neutral-600 dark:text-neutral-400">Carregando…</p>
 
   return (
     <section className="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
       <h2 className="font-medium text-neutral-900 dark:text-white">Dados pessoais</h2>
 
       {profile?.cpf_masked && (
-        <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">CPF: {profile.cpf_masked}</p>
+        <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">CPF: {profile.cpf_masked}</p>
       )}
       {profile?.specialty && (
-        <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
           {profile.specialty} · CRM/{profile.license_state} · {profile.approval_status}
         </p>
       )}
@@ -194,7 +194,7 @@ function RoleProfileSection({ path }: { path: string }) {
           </p>
         )}
         {status === 'saved' && (
-          <p role="status" className="text-sm text-emerald-600 dark:text-emerald-400">
+          <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">
             Perfil atualizado.
           </p>
         )}
@@ -202,7 +202,7 @@ function RoleProfileSection({ path }: { path: string }) {
         <button
           type="submit"
           disabled={status === 'saving'}
-          className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {status === 'saving' ? 'Salvando…' : 'Salvar alterações'}
         </button>

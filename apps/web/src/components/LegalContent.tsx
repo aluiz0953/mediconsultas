@@ -7,7 +7,7 @@ export function LegalContent({ doc }: { doc: LegalDocumentKey }) {
   return (
     <article className="text-[15px] leading-relaxed text-neutral-700 dark:text-neutral-300 [&_li]:mt-1.5 [&_p+p]:mt-3 [&_p+ul]:mt-2 [&_strong]:font-semibold [&_strong]:text-neutral-900 dark:[&_strong]:text-white [&_ul]:list-disc [&_ul]:pl-5 [&_ul+p]:mt-3">
       <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-white">{title}</h1>
-      <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">Última atualização: {LEGAL_UPDATED_AT}</p>
+      <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">Última atualização: {LEGAL_UPDATED_AT}</p>
       <div className="mt-5">{intro}</div>
       {sections.map((section) => (
         <section key={section.heading} className="mt-7">

@@ -127,12 +127,12 @@ export function PrescriptionSection({ appointmentId }: { appointmentId: string |
         <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">Receita médica</h2>
         {prescription && (
           <div className="flex items-center gap-3">
-            <span className="text-xs text-neutral-500 dark:text-neutral-400">{prescription.status === 'DRAFT' ? 'Rascunho' : 'Finalizada'}</span>
+            <span className="text-xs text-neutral-600 dark:text-neutral-400">{prescription.status === 'DRAFT' ? 'Rascunho' : 'Finalizada'}</span>
             {prescription.status === 'FINALIZED' && (
               <button
                 type="button"
                 onClick={() => openPdf(`/api/v1/doctor/prescriptions/${prescription.id}/pdf`)}
-                className="rounded-md border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                className="rounded-md border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
               >
                 Baixar PDF
               </button>
@@ -200,7 +200,7 @@ export function PrescriptionSection({ appointmentId }: { appointmentId: string |
                 <button
                   type="button"
                   onClick={() => removeItem(index)}
-                  className="justify-self-start rounded-md border border-neutral-300 px-2 py-1.5 text-xs text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  className="justify-self-start rounded-md border border-neutral-300 px-2 py-1.5 text-xs text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                 >
                   Remover item
                 </button>
@@ -211,7 +211,7 @@ export function PrescriptionSection({ appointmentId }: { appointmentId: string |
             <button
               type="button"
               onClick={addItem}
-              className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
             >
               + Adicionar item
             </button>
@@ -225,7 +225,7 @@ export function PrescriptionSection({ appointmentId }: { appointmentId: string |
             <button
               type="button"
               onClick={openPrescription}
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+              className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
             >
               Abrir receita
             </button>
@@ -234,14 +234,14 @@ export function PrescriptionSection({ appointmentId }: { appointmentId: string |
               <button
                 type="button"
                 onClick={savePrescriptionDraft}
-                className="rounded-md border border-neutral-300 px-4 py-2 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                className="rounded-md border border-neutral-300 px-4 py-2 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
               >
                 Salvar rascunho
               </button>
               <button
                 type="button"
                 onClick={finalizePrescription}
-                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
               >
                 Finalizar receita
               </button>

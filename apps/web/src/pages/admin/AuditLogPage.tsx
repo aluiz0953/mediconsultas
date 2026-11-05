@@ -47,7 +47,7 @@ interface AuditEvent {
 const PLATFORM_LABEL = { web: 'Web', android: 'App Android' } as const
 
 const RESULT_TONE: Record<AuditEvent['result'], string> = {
-  SUCCESS: 'text-emerald-600 dark:text-emerald-400',
+  SUCCESS: 'text-emerald-700 dark:text-emerald-400',
   DENIED: 'text-amber-600 dark:text-amber-400',
   FAILURE: 'text-red-600 dark:text-red-400',
 }
@@ -152,7 +152,7 @@ export function AuditLogPage() {
         </div>
         <button
           type="submit"
-          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-600 transition hover:bg-neutral-100 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
         >
           Filtrar
         </button>
@@ -184,7 +184,7 @@ export function AuditLogPage() {
         <button
           type="submit"
           disabled={!exportReason.trim() || exporting}
-          className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {exporting ? 'Exportando…' : 'Exportar CSV'}
         </button>
@@ -199,11 +199,11 @@ export function AuditLogPage() {
       {loading ? (
         <SkeletonRows count={3} className="mt-4" />
       ) : visibleEvents.length === 0 ? (
-        <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Nenhum evento encontrado.</p>
+        <p className="mt-4 text-sm text-neutral-600 dark:text-neutral-400">Nenhum evento encontrado.</p>
       ) : (
         <div className="mt-4 overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
           <table className="w-full text-left text-sm">
-            <thead className="bg-neutral-50 text-xs uppercase text-neutral-500 dark:bg-neutral-800/50 dark:text-neutral-400">
+            <thead className="bg-neutral-50 text-xs uppercase text-neutral-600 dark:bg-neutral-800/50 dark:text-neutral-400">
               <tr>
                 <th className="px-4 py-2">Quando</th>
                 <th className="px-4 py-2">Ação</th>
@@ -217,23 +217,23 @@ export function AuditLogPage() {
             <tbody className="divide-y divide-neutral-200 bg-white dark:divide-neutral-800 dark:bg-neutral-900">
               {visibleEvents.map((event) => (
                 <tr key={event.id}>
-                  <td className="whitespace-nowrap px-4 py-2 text-neutral-500 dark:text-neutral-400">
+                  <td className="whitespace-nowrap px-4 py-2 text-neutral-600 dark:text-neutral-400">
                     {new Date(event.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
                   </td>
                   <td className="px-4 py-2 font-medium text-neutral-900 dark:text-white">{event.action}</td>
-                  <td className="px-4 py-2 text-neutral-500 dark:text-neutral-400">
+                  <td className="px-4 py-2 text-neutral-600 dark:text-neutral-400">
                     {event.resource_type}
                     {event.resource_id ? ` · ${event.resource_id.slice(0, 8)}…` : ''}
                   </td>
-                  <td className="px-4 py-2 text-neutral-500 dark:text-neutral-400">
+                  <td className="px-4 py-2 text-neutral-600 dark:text-neutral-400">
                     {event.actor_role ?? '—'}
                     {event.actor_user_id ? ` · ${event.actor_user_id.slice(0, 8)}…` : ''}
                   </td>
                   <td className={`px-4 py-2 font-medium ${RESULT_TONE[event.result]}`}>{event.result}</td>
-                  <td className="whitespace-nowrap px-4 py-2 text-neutral-500 dark:text-neutral-400">
+                  <td className="whitespace-nowrap px-4 py-2 text-neutral-600 dark:text-neutral-400">
                     {event.platform ? PLATFORM_LABEL[event.platform] : '—'}
                   </td>
-                  <td className="px-4 py-2 text-neutral-500 dark:text-neutral-400">{event.reason ?? '—'}</td>
+                  <td className="px-4 py-2 text-neutral-600 dark:text-neutral-400">{event.reason ?? '—'}</td>
                 </tr>
               ))}
             </tbody>

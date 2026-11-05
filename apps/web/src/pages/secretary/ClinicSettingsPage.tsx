@@ -88,7 +88,7 @@ export function ClinicSettingsPage() {
         <h2 className="font-medium text-neutral-900 dark:text-white">Logotipo</h2>
 
         {loading ? (
-          <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Carregando…</p>
+          <p className="mt-4 text-sm text-neutral-600 dark:text-neutral-400">Carregando…</p>
         ) : (
           <>
             {settings?.logo_base64 ? (
@@ -98,7 +98,7 @@ export function ClinicSettingsPage() {
                 className="mt-4 h-24 w-24 rounded-md border border-neutral-200 object-contain dark:border-neutral-700"
               />
             ) : (
-              <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Nenhuma logo configurada ainda.</p>
+              <p className="mt-4 text-sm text-neutral-600 dark:text-neutral-400">Nenhuma logo configurada ainda.</p>
             )}
 
             <div className="mt-4">
@@ -111,18 +111,18 @@ export function ClinicSettingsPage() {
                 type="file"
                 accept="image/png,image/jpeg"
                 onChange={handleFileChange}
-                className="mt-1 block w-full text-sm text-neutral-600 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-600 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-emerald-700 dark:text-neutral-300"
+                className="mt-1 block w-full text-sm text-neutral-600 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-700 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-emerald-700 dark:text-neutral-300"
               />
             </div>
 
-            {status === 'saving' && <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Enviando…</p>}
+            {status === 'saving' && <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">Enviando…</p>}
             {status === 'error' && (
               <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
                 {error}
               </p>
             )}
             {status === 'saved' && (
-              <p role="status" className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">
+              <p role="status" className="mt-2 text-sm text-emerald-700 dark:text-emerald-400">
                 Logo atualizada.
               </p>
             )}

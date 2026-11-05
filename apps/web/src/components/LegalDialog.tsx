@@ -38,7 +38,7 @@ export function LegalDialog({ doc, onClose }: { doc: LegalDocumentKey | null; on
           type="button"
           onClick={onClose}
           aria-label="Fechar"
-          className="rounded-md p-1.5 text-neutral-500 transition hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-neutral-400 dark:hover:bg-neutral-800"
+          className="rounded-md p-1.5 text-neutral-600 transition hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:text-neutral-400 dark:hover:bg-neutral-800"
         >
           <XIcon className="h-5 w-5" />
         </button>
